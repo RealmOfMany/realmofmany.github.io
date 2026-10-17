@@ -772,7 +772,8 @@ const NS = Math.max(.6, (maxR + 9) / 23);                               // Nebel
 // ---- Welt bauen
 const c = neueSzene({ c: [0, 2], r: [23 * NS, 46 * NS] }, NS);
 c.sonne.shadow.mapSize.set(2048, 2048); Object.assign(c.sonne.shadow.camera, { left: -60 * NS, right: 60 * NS, top: 60 * NS, bottom: -60 * NS });
-gelaende(Math.max(170, 120 * NS), 220, 8);
+const TER = Math.max(260, Math.ceil(2 * (46 * NS * 2.1 + 12)));   // Randschutz: Gelaende reicht bis in den vollen Nebel (Mitte w=2 wie der Nebel)
+gelaende(TER, Math.min(300, Math.round(TER)), 2);
 lagerfeuer(); setze(unterstand(), -3.6, .9, Math.PI / 2 + .25); setze(holzstapel(1), -1.6, -2.3, .9);
 SPERRE.push([-3.6, .9, 2.6], [-1.6, -2.3, 1], [1.9, .5, 1.6]);
 const B = Math.PI / 4;
@@ -797,6 +798,11 @@ for (const dk of W_DEKO) { if (!BAUTEN[dk.typ]) continue; setze(BAUTEN[dk.typ]()
     if (R() > p || !frei(u, w, .8) || Math.hypot(u, w) < 5.5 || ell > 1.35) continue;
     setze(baum(dicht > .6 && R() < .6 ? "tanne" : "laub", rr(.8, 1.3)), u, w, R() * 6); SPERRE.push([u, w, 1.2]); }
 }
+
+{ // Randschutz (17.10. nachm.): dichter Wald bis in den vollen Nebel, damit nirgends ein Kartenende sichtbar ist
+  const N2 = Math.round(1300 * NS * NS);
+  for (let i = 0; i < N2; i++) { const a = R() * Math.PI * 2, q = 1.15 + R() * .7, u = Math.cos(a) * q * 23 * NS, w = 2 + Math.sin(a) * q * 46 * NS;
+    if (R() > .7 || !frei(u, w, .6)) continue; setze(baum(R() < .45 ? "tanne" : "laub", rr(.9, 1.35)), u, w, R() * 6); SPERRE.push([u, w, 1.1]); } }
 gras(Math.round(2600 * NS), [-30 * NS, 30 * NS], [-28 * NS, 40 * NS]); wolken(6);
 fertig(c);
 
@@ -823,8 +829,8 @@ const SINE = Math.sin(33 * Math.PI / 180), ASPS = innerHeight / innerWidth, NUTZ
 const startB = Math.min(140, Math.max(26, RU[1] - RU[0], (RW[1] - RW[0]) * SINE / (ASPS * NUTZ)));
 const K = { b: startB, u: (RU[0] + RU[1]) / 2, w: (RW[0] + RW[1]) / 2 + .02 * startB * ASPS / SINE - .10 * startB * ASPS / Math.sin(31 * Math.PI / 180) * .5, ziel: null };   // Inhalt-Mitte bei ~52 % Bildhoehe
 const START = { b: K.b, u: K.u, w: K.w };
-const B_MIN = 12, B_MAX = Math.max(60, startB * 1.4);
-function ansicht() { const z = K.b; kamera(c, z, K.u, K.w + .10 * z * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180) * .5, -4, 33); }
+const B_MIN = 12, B_MAX = Math.min(Math.max(60, startB * 1.4), TER * .5);   // nie weiter heraus, als Gelaende da ist
+function ansicht() { klemmen(); const z = K.b; kamera(c, z, K.u, K.w + .10 * z * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180) * .5, -4, 33); }
 const zeiger = new Map(); let zieh = null, pinch = null;
 const cv = renderer.domElement; cv.style.touchAction = "none";
 cv.addEventListener("pointerdown", e => { zeiger.set(e.pointerId, [e.clientX, e.clientY]); K.ziel = null; if (zeiger.size === 1) zieh = [e.clientX, e.clientY, K.u, K.w]; else { zieh = null; const [a, b] = [...zeiger.values()]; pinch = [Math.hypot(a[0] - b[0], a[1] - b[1]), K.b]; } });
@@ -834,7 +840,10 @@ cv.addEventListener("pointermove", e => { if (!zeiger.has(e.pointerId)) return; 
 const los = e => { zeiger.delete(e.pointerId); if (zeiger.size < 2) pinch = null; if (zeiger.size === 0) zieh = null; };
 cv.addEventListener("pointerup", los); cv.addEventListener("pointercancel", los);
 cv.addEventListener("wheel", e => { e.preventDefault(); K.ziel = null; K.b = Math.min(B_MAX, Math.max(B_MIN, K.b * (1 + Math.sign(e.deltaY) * .1))); }, { passive: false });
-function klemmen() { const g = Math.max(maxR + 6, (RU[1] - RU[0]) / 2 + 8, (RW[1] - RW[0]) / 2 + 8); K.u = Math.max(-g, Math.min(g, K.u)); K.w = Math.max(-g * 1.2, Math.min(g * 1.3, K.w)); }
+function klemmen() { const g = Math.max(maxR + 6, (RU[1] - RU[0]) / 2 + 8, (RW[1] - RW[0]) / 2 + 8); K.u = Math.max(-g, Math.min(g, K.u)); K.w = Math.max(-g * 1.2, Math.min(g * 1.3, K.w));
+  // Randschutz: sichtbares Rechteck (Breite b, Tiefe b*ASP/sin) bleibt innerhalb des Gelaendes
+  K.b = Math.min(K.b, B_MAX); const hu = K.b / 2, hw = K.b * ASPS / SINE / 2 + 4, off = .10 * K.b * ASPS / Math.sin(31 * Math.PI / 180) * .5, R2 = TER / 2 - 6;
+  K.u = Math.max(-R2 + hu, Math.min(R2 - hu, K.u)); const wt = Math.max(2 - R2 + hw, Math.min(2 + R2 - hw, K.w + off)); K.w = wt - off; }
 
 // ---- Namensschilder (nur Handle), Suche
 const SCH = [], neuSchild = (l, html, art) => { const d = document.createElement("div"); d.className = "schild" + (art ? " " + art : ""); d.innerHTML = html; HUD.schilder.appendChild(d); SCH.push({ l, d }); };
