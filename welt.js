@@ -708,16 +708,16 @@ document.getElementById("wunsch").innerHTML = DATEN.wunsch ? `<b>Today's wish:</
 
 // ---- Lage der Haeuser: in Einzugsreihenfolge auf einer Spirale um das Feuer, frei von Bach/Feuer/Unterstand; Fischerhuetten ans Ufer
 WEILER = false; flussW = u => 9.5 + 1.8 * Math.sin(u / 5) + .6 * Math.sin(u / 2.3); PFADE = []; PLATZ = [[0, 0, 2.6]]; hoeheFn = hoeheDorf;
-const LAGE = [], belegt = [[0, 0, 4.5], [-3.6, .9, 3.2], [1.9, .5, 2]];
+const DORF_MITTE_W = 19.5, LAGE = [], belegt = [[0, 0, 4.5], [-3.6, .9, 3.2], [1.9, .5, 2]];
 const passt = (u, w, r) => belegt.every(([a, b, rr2]) => Math.hypot(u - a, w - b) > rr2 + r) && Math.abs(w - flussW(u)) > 2.8 + r * .6;
 DATEN.haeuser.forEach((h, i) => {
   const typ = h.art === "geteilt" ? h.typ : WOHNEN[h.seed % WOHNEN.length], r = typ === "langhaus" ? 6.2 : typ === "doppelhaus" ? 4.8 : 3.4;
   let pos = null;
   if (typ === "fischerhuette") for (let j = 0; j < 60 && !pos; j++) { const u = (j % 2 ? -1 : 1) * (5 + 4.2 * Math.floor(j / 2)), s = (j >> 1) % 2 ? 1 : -1, w = flussW(u) + s * 3.4; if (passt(u, w, 2.6)) pos = [u, w, s]; }
-  for (let k = 0; k < 4000 && !pos; k++) { const a = (i * 2.399963 + k * .61) % (Math.PI * 2), rad = 7 + 1.15 * Math.sqrt(k * 9 + i * 6), u = Math.cos(a) * rad, w = Math.sin(a) * rad * 1.15 + 1; if (passt(u, w, r)) pos = [u, w, 0]; }
+  for (let k = 0; k < 4000 && !pos; k++) { const a = (i * 2.399963 + k * .61) % (Math.PI * 2), rad = 1.15 * Math.sqrt(k * 9 + i * 6), u = Math.cos(a) * rad, w = DORF_MITTE_W + Math.sin(a) * rad * 1.15; if (passt(u, w, r)) pos = [u, w, 0]; }   // Dorf jenseits des Bachs (Anthony 16.10.)
   belegt.push([pos[0], pos[1], r]); LAGE.push({ ...h, typ, u: pos[0], w: pos[1], ufer: pos[2] });
 });
-const maxR = Math.max(10, ...LAGE.map(l => Math.hypot(l.u, (l.w - 1) / 1.15)));
+const maxR = Math.max(10, ...LAGE.map(l => Math.hypot(l.u, (l.w - 1) / 1.15)), DORF_MITTE_W + 6);
 const NS = Math.max(.6, (maxR + 9) / 23);                               // Nebel weicht mit dem Dorf
 
 // ---- Welt bauen
