@@ -136,12 +136,12 @@ function hoeheDorf(u, w) { let h = Math.max(hoeheRoh(u, w), WASSER_Y + .5); h *=
   const d = Math.abs(w - flussW(u)); h = Math.min(h, WASSER_Y - .55 + (h - WASSER_Y + .55) * sst(1.4, 3.6, d));
   return h; }
 const setze = (o, u, w, rot = 0, dy = 0) => { o.position.set(u, hoehe(u, w) + dy, -w); o.rotation.y = rot; scene.add(o); return o; };
-function baum(art = "laub", s = 1) { const g = new THREE.Group();
+function baum(art = "laub", s = 1, einfach = false) { const g = new THREE.Group();   // einfach: 1 Krone (Randwald, 18.10.)
   if (art === "tanne") { const st = mesh(new THREE.CylinderGeometry(.14, .2, 1.2, 5), mat("stamm")); st.position.y = .6; g.add(st);
     for (let i = 0; i < 3; i++) { const k = mesh(new THREE.ConeGeometry(1.6 - i * .4, 1.9, 6), mat("tanne")); k.position.y = 1.6 + i * 1.05; k.rotation.y = R() * 3; g.add(k); } }
   else { const st = mesh(new THREE.CylinderGeometry(.15, .24, 2.2, 5), mat("stamm")); st.position.y = 1.1; g.add(st);
     const fk = pick(["laub", "laub", "laub2", "laub3"]);
-    for (let i = 0; i < 3; i++) { const k = mesh(new THREE.IcosahedronGeometry(rr(1.0, 1.45), 0), mat(fk)); k.position.set(rr(-.6, .6), 2.6 + rr(0, .9) + i * .25, rr(-.6, .6)); k.rotation.set(R() * 3, R() * 3, 0); g.add(k); } }
+    for (let i = 0; i < (einfach ? 1 : 3); i++) { const k = mesh(new THREE.IcosahedronGeometry(rr(einfach ? 1.4 : 1.0, 1.45), 0), mat(fk)); k.position.set(rr(-.6, .6), 2.6 + rr(0, .9) + i * .25, rr(-.6, .6)); k.rotation.set(R() * 3, R() * 3, 0); g.add(k); } }
   g.scale.setScalar(s); return g; }
 function busch(s = 1) { const k = mesh(new THREE.IcosahedronGeometry(.7 * s, 0), mat(pick(["laub", "laub2"]))); k.position.y = .35 * s; k.scale.y = .75; const g = new THREE.Group(); g.add(k); return g; }
 function fels(s = 1) { const k = mesh(new THREE.DodecahedronGeometry(.6 * s, 0), mat("fels")); k.scale.set(1, .6, .8); k.position.y = .2 * s; k.rotation.set(R(), R() * 3, R()); const g = new THREE.Group(); g.add(k); return g; }
@@ -466,7 +466,15 @@ function gras(n = WEILER ? 2600 : 1200, ub = [-30, 30], wb = WEILER ? [-45, 60] 
     m4.compose(new THREE.Vector3(u, hoehe(u, w) + .15, -w), q.setFromEuler(new THREE.Euler(rr(-.2, .2), R() * 3, rr(-.2, .2))), new THREE.Vector3(1, rr(.6, 1.3), 1));
     im.setMatrixAt(k, m4); im.setColorAt(k, c.setHex(pick([PAL.grasDunkel, PAL.gras2, PAL.grasOcker, 0x6a7a30]))); k++; }
   im.count = k; scene.add(im); }
-const frei = (u, w, r = 0) => SPERRE.every(([a, b, rr2]) => Math.hypot(u - a, w - b) > rr2 + r) && pfadAbstand(u, w) > 1.6 + r && Math.abs(w - flussW(u)) > 2.6 + r;
+const frei = (u, w, r = 0) => Math.abs(w - flussW(u)) > 2.6 + r && (SPERRE.frei ? SPERRE.frei(u, w, r) : SPERRE.every(([a, b, rr2]) => Math.hypot(u - a, w - b) > rr2 + r)) && pfadAbstand(u, w) > 1.6 + r;
+// 18.10.: Hindernis-Raster (gleiche Pruefung, nur Nachbarzellen) -> Laden bleibt bei 500/1000 Bewohnern schnell
+function sperreGitter() { const a = [], G = new Map(), C = 6, k = (i, j) => i * 73856093 ^ j * 19349663;
+  a.push = function (...xs) { for (const x of xs) { Array.prototype.push.call(this, x); const [u, w, rr2] = x;
+      for (let i = Math.floor((u - rr2) / C); i <= Math.floor((u + rr2) / C); i++) for (let j = Math.floor((w - rr2) / C); j <= Math.floor((w + rr2) / C); j++) { const kk = k(i, j); (G.get(kk) || G.set(kk, []).get(kk)).push(x); } }
+    return this.length; };
+  a.frei = (u, w, r) => { for (let i = Math.floor((u - r) / C); i <= Math.floor((u + r) / C); i++) for (let j = Math.floor((w - r) / C); j <= Math.floor((w + r) / C); j++) {
+      const l = G.get(k(i, j)); if (l) for (const [x, y, rr2] of l) if (Math.hypot(u - x, w - y) <= rr2 + r) return false; } return true; };
+  return a; }
 
 // ---------------------------------------------------------------- Zeitabhaengiges
 function wegPunkt(pts, s) { for (let i = 0; i < pts.length - 1; i++) { const [a, b] = [pts[i], pts[i + 1]], L = Math.hypot(b[0] - a[0], b[1] - a[1]);
@@ -754,6 +762,12 @@ const BAUTEN = {
     for (const [x, z, w, d] of [[0, -a, 2 * a, .04], [0, a, 2 * a, .04], [-a, 0, .04, 2 * a], [a, 0, .04, 2 * a]]) g.add(box(w, .04, d, mat(0xe8dcc0), x, .7, z));
     const sch = box(.9, .6, .07, mat(0xd9b77a), a - .3, .85, a + .5); g.add(sch); g.add(box(.1, .9, .1, mat("stamm"), a - .3, .45, a + .45));
     return g; },
+  bruecke() {   // 18.10. Stadtplan: Holzbruecke ueber den Bach (quer zum Fluss, Laengsachse = z), Deck auf Hoehe 0
+    const g = new THREE.Group(), L = 10, B = 2.6;
+    for (let i = 0; i < 16; i++) { const p = box(B, .16, L / 16 - .04, mat(i % 2 ? "holz" : "holzDunkel"), 0, .3, -L / 2 + (i + .5) * L / 16); g.add(p); }
+    for (const sx of [-1, 1]) { g.add(box(.18, .18, L, mat("holzDunkel"), sx * (B / 2 - .1), .16, 0)); g.add(box(.1, .1, L, mat("holz"), sx * (B / 2), 1.15, 0));
+      for (let i = 0; i <= 5; i++) { const z = -L / 2 + i * L / 5; g.add(box(.12, .9, .12, mat("holzDunkel"), sx * (B / 2), .75, z)); g.add(box(.26, 1.8, .26, mat("stamm"), sx * (B / 2 - .2), -.6, z)); } }
+    g.userData.festeHoehe = .05; return g; },
   beerenbusch() { const g = new THREE.Group();
     for (let i = 0; i < 3; i++) { const k = mesh(new THREE.IcosahedronGeometry(rr(.6, .85), 0), mat(i % 2 ? "laub" : "laub2")); k.position.set(rr(-.5, .5), .55 + rr(0, .25), rr(-.5, .5)); k.scale.y = .8; g.add(k); }
     for (let i = 0; i < 22; i++) { const b = mesh(new THREE.IcosahedronGeometry(.07, 0), mat(0xb0283a)); const a = R() * 6.28, r = rr(.55, .95); b.position.set(Math.cos(a) * r, rr(.35, 1.1), Math.sin(a) * r); g.add(b); }
@@ -851,14 +865,43 @@ const NS = Math.max(.6, (maxR + 9) / 23);                               // Nebel
 const ZONE_R = maxR + 14, KACHEL = 45;   // 18.10.: ausserhalb ZONE_R wirft nichts Schatten (Fernwald); Dorf in Kacheln zusammengefasst
 
 // ---- Welt bauen
-const c = neueSzene({ c: [0, 2], r: [23 * NS, 46 * NS] }, NS);
+const c = neueSzene({ c: [0, 2], r: [23 * NS, 46 * NS] }, NS); SPERRE = sperreGitter();
 c.sonne.shadow.mapSize.set(2048, 2048); Object.assign(c.sonne.shadow.camera, { left: -60 * NS, right: 60 * NS, top: 60 * NS, bottom: -60 * NS });
 const TER = Math.max(260, Math.ceil(2 * (46 * NS * 2.1 + 12)));   // Randschutz: Gelaende reicht bis in den vollen Nebel (Mitte w=2 wie der Nebel)
 gelaende(TER, Math.min(300, Math.round(TER)), 2);
 lagerfeuer(); setze(unterstand(), -3.6, .9, Math.PI / 2 + .25); setze(holzstapel(1), -1.6, -2.3, .9);
 SPERRE.push([-3.6, .9, 2.6], [-1.6, -2.3, 1], [1.9, .5, 1.6]);
 const B = Math.PI / 4;
+// ---- 18.10.: Holzhuetten gebuendelt (InstancedMesh je Vorlage x Material). Die ersten 6 (Gruender) + geteilte Haeuser bleiben einzeln wie bisher.
+// Vorlage = (Variante, seed % PROTO_N); ferne Viertel (> LOD_R von der Mitte) zusaetzlich als einfache Huette, beim Herauszoomen umgeschaltet.
+const PROTO_N = 6, LOD_R = 75, PROTO = new Map(), BUENDEL = new Map(), LOD = { detail: [], einfach: [], stand: null };
+function vereinen(geos) { const n = geos.reduce((s, x) => s + x.attributes.position.count, 0), geo = new THREE.BufferGeometry();
+  for (const a of ["position", "normal", "uv"]) { const it = a === "uv" ? 2 : 3, arr = new Float32Array(n * it); let o = 0; for (const x of geos) { arr.set(x.attributes[a].array, o); o += x.attributes[a].array.length; } geo.setAttribute(a, new THREE.BufferAttribute(arr, it)); }
+  geo.computeBoundingSphere(); return geo; }
+function zerlegen(g) { const teile = new Map(); g.updateMatrixWorld(true);
+  g.traverse(o => { if (!o.isMesh || !o.visible) return; let x = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); x.applyMatrix4(o.matrixWorld);
+    if (!x.attributes.uv) x.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(x.attributes.position.count * 2), 2)); if (!x.attributes.normal) x.computeVertexNormals();
+    if (!teile.has(o.material.uuid)) teile.set(o.material.uuid, { m: o.material, g: [] }); teile.get(o.material.uuid).g.push(x); });
+  return [...teile.values()].map(t => ({ m: t.m, geo: vereinen(t.g) })); }
+function vorlage(v, k) { const key = v + ":" + k; if (PROTO.has(key)) return PROTO.get(key);
+  const fl = FENSTERLICHT.length, em = EMITTER.length, g = hausFuer("holzhuette", 50021 + k * 7919, v);
+  const kamin = EMITTER.length > em ? EMITTER[em].p.clone() : null; EMITTER.length = em; FENSTERLICHT.length = fl;
+  const p = { teile: zerlegen(g), bbox: new THREE.Box3().setFromObject(g), kamin }; PROTO.set(key, p); return p; }
+let EINFACH = null;
+function einfacheHuette() { if (EINFACH) return EINFACH; const g = new THREE.Group();   // ~40 Dreiecke: Sockel, Wand, Satteldach
+  g.add(box(4.0, .5, 3.3, mat("stein"), 0, .1)); g.add(box(3.7, 2.0, 3.0, mat("holz"), 0, 1.35));
+  for (const sg of [1, -1]) { const d = box(4.2, .2, 2.2, mat(sg > 0 ? "stroh" : "schindel")); d.position.set(0, 2.85, sg * .78); d.rotation.x = sg * .62; g.add(d); }
+  EINFACH = zerlegen(g); return EINFACH; }
+const huetteMatrix = (l, rot) => new THREE.Matrix4().compose(new THREE.Vector3(l.u, hoehe(l.u, l.w) - .05, -l.w), new THREE.Quaternion().setFromEuler(new THREE.Euler(0, rot, 0)), new THREE.Vector3(1, 1, 1));
+LAGE.forEach((l, i) => { l.einzelIndex = i; });
 for (const l of LAGE) {
+  if (l.typ === "holzhuette" && l.art !== "geteilt" && l.einzelIndex >= 6 && P.get("buendel") !== "aus") {   // gebuendelt
+    const v = l.var ?? 0, k = l.seed % PROTO_N, pr = vorlage(v, k), rot = l.rot ?? 0, fern = Math.hypot(l.u, l.w - 15) > LOD_R;
+    const key = v + ":" + k + (fern ? ":F" : ""); if (!BUENDEL.has(key)) BUENDEL.set(key, { pr, fern, m: [] }); BUENDEL.get(key).m.push(huetteMatrix(l, rot));
+    l.lok = pr.bbox; l.g = null; const y = hoehe(l.u, l.w) - .05;
+    l.dach = new THREE.Vector3(l.u, y + pr.bbox.max.y + .6, -l.w); l.groesse = Math.max(pr.bbox.max.x - pr.bbox.min.x, pr.bbox.max.z - pr.bbox.min.z);
+    if (pr.kamin && Math.hypot(l.u, l.w - DORF_MITTE_W) < 45) { const a = new THREE.Object3D(); a.matrixAutoUpdate = false; a.matrix.copy(huetteMatrix(l, rot)); scene.add(a); a.updateMatrixWorld(true); EMITTER.push({ g: a, p: pr.kamin.clone() }); }
+    SPERRE.push([l.u, l.w, 4.4]); continue; }
   const g = l.art === "geteilt" ? hausFuer(l.typ, l.seed, l.var ?? undefined) : l.typ && l.var !== undefined ? hausFuer(l.typ, l.seed, l.var) : wohnhausFuer(l.seed).haus;
   const rot = l.rot !== undefined ? l.rot : l.typ === "fischerhuette" ? (l.ufer < 0 ? 0 : Math.PI) + rr(-.2, .2) : B + (l.seed % 2) * Math.PI / 2 + ((l.seed >> 3) % 7 - 3) * .04;
   l.lok = new THREE.Box3().setFromObject(g); l.g = g;   // lokale Masse fuer Tuer-Schilder
@@ -866,9 +909,14 @@ for (const l of LAGE) {
   const bb = new THREE.Box3().setFromObject(g); l.dach = new THREE.Vector3(l.u, bb.max.y + .6, -l.w); l.groesse = Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z);
   SPERRE.push([l.u, l.w, l.typ === "langhaus" ? 7 : l.typ === "doppelhaus" ? 5.5 : 4.4]);
 }
+for (const { pr, fern, m } of BUENDEL.values()) {
+  const setz = (teile, liste) => teile.forEach(t => { const im = new THREE.InstancedMesh(t.geo, t.m, m.length); m.forEach((x, i) => im.setMatrixAt(i, x));
+    im.castShadow = im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im); liste && liste.push(im); });
+  setz(pr.teile, fern ? LOD.detail : null); if (fern) setz(einfacheHuette(), LOD.einfach); }
+window.__buendel = () => ({ vorlagen: PROTO.size, buendel: BUENDEL.size, huetten: [...BUENDEL.values()].reduce((s, b) => s + b.m.length, 0) });
 for (const gd of W_GEB) { const g = BAUTEN[gd.typ] ? BAUTEN[gd.typ]() : ARBEIT.includes(gd.typ) ? hausFuer(gd.typ, gd.seed || 7) : null; if (!g) continue;
   (g.userData.stapelExtra || []).forEach(x => x.visible = true);   // Holz ist schon gesammelt
-  setze(g, gd.u, gd.w, gd.rot || 0); const p = gd.fortschritt ?? 1;
+  setze(g, gd.u, gd.w, gd.rot || 0); if (g.userData.festeHoehe !== undefined) g.position.y = g.userData.festeHoehe; const p = gd.fortschritt ?? 1;
   if (p < 1) { if (g.userData.stufen) bauStufe(g, p); else { g.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(g), hz = bb.min.y + .15 + p * (bb.max.y - bb.min.y);   // Bau waechst von unten
       g.traverse(o => { if (o.isMesh) o.visible = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3()).y < hz; }); } }
   g.updateMatrixWorld(true); if (g.userData.kamin && p >= 1) EMITTER.push({ g, p: g.userData.kamin.clone() }); SPERRE.push([gd.u, gd.w, 4.8]);
@@ -889,9 +937,11 @@ for (const dk of W_DEKO) { if (!BAUTEN[dk.typ]) continue; setze(BAUTEN[dk.typ]()
 const LEBEN = { rehe: [], hasen: [], voegel: [], laeufer: [], wurzeln: [] };
 for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
   const C = gd.c, PR = gd.r, N = gd.n, PP = [];
-  for (let i = 0; i < N; i++) { const a = (gd.von_grad + (gd.bis_grad - gd.von_grad) * i / (N - 1)) * Math.PI / 180, r0 = PR + (fbm(i * .08, 7.3) - .5) * 4; PP.push({ u: C.u + Math.cos(a) * r0, w: C.w + Math.sin(a) * r0, a }); }
+  for (let i = 0; i < N; i++) { const a = (gd.von_grad + (gd.bis_grad - gd.von_grad) * i / (N - 1)) * Math.PI / 180, r0 = PR + (fbm(i * .08, 7.3) - .5) * 4; PP.push({ u: C.u + Math.cos(a) * r0 * (gd.su || 1), w: C.w + Math.sin(a) * r0 * (gd.sw || 1), a }); }
+  const HUETTE_NAH = (u, w) => LAGE.some(l => Math.hypot(l.u - u, l.w - w) < (l.typ === "langhaus" ? 8 : 3.4)) || Math.abs(w - flussW(u)) < 3.6;   // 18.10.: Tor/Luecke statt durch Huetten oder den Bach
   const V = Math.max(0, gd.fertig[0]), Bi = Math.min(N, gd.fertig[1]), KOMPLETT = V <= 0 && Bi >= N; gd.prozent = Math.round((Bi - V) / N * 100);
   for (const [i, p] of PP.entries()) {
+    if (HUETTE_NAH(p.u, p.w)) continue;
     if (i >= V && i < Bi) { const g = new THREE.Group(), h = 2.5 + h2(i, 3) * .4;
       const sm = mesh(new THREE.CylinderGeometry(.2, .23, h, 7), mat(i % 3 ? "stamm" : "holz")); sm.position.y = h / 2; g.add(sm);
       const sp = mesh(new THREE.ConeGeometry(.2, .55, 7), mat("stamm")); sp.position.y = h + .27; g.add(sp); setze(g, p.u, p.w, i * 1.7); }
@@ -925,20 +975,41 @@ for (const dk of W_DEKO) {
   if (dk.typ === "voegel") { const fl = new THREE.MeshBasicMaterial({ color: 0x3a3028, side: THREE.DoubleSide });
     for (let i = 0; i < (dk.n || 11); i++) { const g = new THREE.Group(); for (const sg of [-1, 1]) { const f = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(.1, 0, 0), new THREE.Vector3(-.12, 0, sg * .55), new THREE.Vector3(.1, 0, sg * .32)]), fl); f.userData.s = sg; g.add(f); }
       g.scale.setScalar(.95); scene.add(g); LEBEN.voegel.push({ g, dx: (i % 4) * 1.6 - 2.4 + h2(i, 4), dw: Math.floor(i / 4) * 1.8 + h2(i, 5), ph: h2(i, 6) * 6 }); } } }
+// ---- 18.10.: Wald gebuendelt (InstancedMesh je Bauteil): gleiche Baumform wie baum(), aber ohne Einzel-Meshes -> schnell laden, wenige Draw-Calls
+const WALD = (() => {
+  const T = { stammL: [], stammT: [], laub: [], laub2: [], laub3: [], tanne0: [], tanne1: [], tanne2: [] }, m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), v = new THREE.Vector3(), sc = new THREE.Vector3();
+  const grp = new THREE.Object3D(), teil = new THREE.Object3D(); grp.add(teil);
+  function rein(liste, x, y, z, rx, ry, sx, sy, sz, fern) { teil.position.set(x, y, z); teil.rotation.set(rx, ry, 0); teil.scale.set(sx, sy, sz); teil.updateMatrix(); grp.updateMatrixWorld(true); teil.updateMatrixWorld(true);
+    liste.push([teil.matrixWorld.clone(), fern]); }
+  return {
+    baum(art, s, u, w, rot, einfach) { const fern = Math.hypot(u, w - DORF_MITTE_W * .6) > ZONE_R;
+      grp.position.set(u, hoehe(u, w), -w); grp.rotation.set(0, rot, 0); grp.scale.setScalar(s); grp.updateMatrixWorld(true);
+      if (art === "tanne") { rein(T.stammT, 0, .6, 0, 0, 0, 1, 1, 1, fern); for (let i = 0; i < 3; i++) rein(T["tanne" + i], 0, 1.6 + i * 1.05, 0, 0, R() * 3, 1, 1, 1, fern); }
+      else { rein(T.stammL, 0, 1.1, 0, 0, 0, 1, 1, 1, fern); const fk = pick(["laub", "laub", "laub2", "laub3"]);
+        for (let i = 0; i < (einfach ? 1 : 3); i++) { const r0 = rr(einfach ? 1.4 : 1.0, 1.45); rein(T[fk], rr(-.6, .6), 2.6 + rr(0, .9) + i * .25, rr(-.6, .6), R() * 3, R() * 3, r0, r0, r0, fern); } } },
+    fertig() { const GEO = { stammL: new THREE.CylinderGeometry(.15, .24, 2.2, 5), stammT: new THREE.CylinderGeometry(.14, .2, 1.2, 5), laub: new THREE.IcosahedronGeometry(1, 0),
+        tanne0: new THREE.ConeGeometry(1.6, 1.9, 6), tanne1: new THREE.ConeGeometry(1.2, 1.9, 6), tanne2: new THREE.ConeGeometry(.8, 1.9, 6) };
+      const MAT = { stammL: mat("stamm"), stammT: mat("stamm"), laub: mat("laub"), laub2: mat("laub2"), laub3: mat("laub3"), tanne0: mat("tanne"), tanne1: mat("tanne"), tanne2: mat("tanne") };
+      let n = 0; for (const [k, liste] of Object.entries(T)) for (const fern of [false, true]) { const l = liste.filter(x => x[1] === fern); if (!l.length) continue;
+        const g = (GEO[k] || GEO.laub).clone(); if (CFG.tex && MAT[k].map) weltUV(g, 1 / 1.6);
+        const im = new THREE.InstancedMesh(g, MAT[k], l.length); l.forEach((x, i) => im.setMatrixAt(i, x[0])); im.castShadow = !fern; im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im); n += l.length; }
+      return n; } };
+})();
 { // ---- Wald + Lichtungsrand: wie im Reel, auf Dorfgroesse skaliert
-  const N = Math.min(6000, Math.round(1700 * NS * NS * .8));   // 18.10.: gedeckelt (Handy)
+  const N = Math.min(Math.round(6000 + 2200 * Math.max(0, NS - 3)), Math.round(1700 * NS * NS * .8));   // 18.10.: Deckel waechst mit der Welt (Wald bleibt sichtbar)
   for (let i = 0; i < N; i++) { const u = rr(-34, 34) * NS, w = rr(-45, 62) * NS;
     const ell = Math.hypot(u / (23 * NS), (w - 2) / (46 * NS)), dicht = fbm(u * .07 + 5, w * .07 - 2);
     const rand = (u * .85 + w * .3) < -8 * NS + 9 * (dicht - .5) || w > 21 * NS + 10 * (dicht - .5) + .1 * u;
     const p = rand ? .55 : .02 + .35 * sst(.8, 1.15, ell);
     if (R() > p || !frei(u, w, .8) || Math.hypot(u, w) < 5.5 || ell > 1.35 || VFREI(u, w)) continue;
-    setze(baum(dicht > .6 && R() < .6 ? "tanne" : "laub", rr(.8, 1.3)), u, w, R() * 6); SPERRE.push([u, w, 1.2]); }
+    WALD.baum(dicht > .6 && R() < .6 ? "tanne" : "laub", rr(.8, 1.3), u, w, R() * 6, false); SPERRE.push([u, w, 1.2]); }
 }
 
 { // Randschutz (17.10. nachm.): dichter Wald bis in den vollen Nebel, damit nirgends ein Kartenende sichtbar ist
-  const N2 = Math.min(4200, Math.round(1300 * NS * NS));
+  const N2 = Math.min(Math.round(4200 + 1600 * Math.max(0, NS - 3)), Math.round(1300 * NS * NS));
   for (let i = 0; i < N2; i++) { const a = R() * Math.PI * 2, q = 1.15 + R() * .7, u = Math.cos(a) * q * 23 * NS, w = 2 + Math.sin(a) * q * 46 * NS;
-    if (R() > .7 || !frei(u, w, .6) || VFREI(u, w)) continue; setze(baum(R() < .45 ? "tanne" : "laub", rr(.9, 1.35)), u, w, R() * 6); SPERRE.push([u, w, 1.1]); } }
+    if (R() > .7 || !frei(u, w, .6) || VFREI(u, w)) continue; WALD.baum(R() < .45 ? "tanne" : "laub", rr(.9, 1.35), u, w, R() * 6, true); SPERRE.push([u, w, 1.1]); } }
+window.__baeume = WALD.fertig();
 gras(Math.round(2600 * NS * (SAISON.schnee ? .35 : 1)), [-30 * NS, 30 * NS], [-28 * NS, 40 * NS]); wolken(6);
 if (SAISON.laub) { const n = 64, im = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.42, 0), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 1 }), n);   // Laubhaufen (Herbst), 1 Draw-Call
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), cl = new THREE.Color(); let k = 0;
@@ -1120,7 +1191,7 @@ if ((DATEN.unterstand || []).length) { const y = hoehe(-3.6, .9) + 2.6;   // Bew
   for (const [i, h] of DATEN.unterstand.entries()) neuSchild({ u: -3.6, w: .9, dach: new THREE.Vector3(-3.6, y + i * .9, -.9), groesse: 8, bewohner: [h], prio: PRIO.haus }, `<span class="hd">@${esc(h)}</span><span class="klein">shelter by the fire</span>`); }
 const bauTitel = gd => { const name = gd.name || null, p = gd.prozent ?? Math.round((gd.fortschritt ?? 1) * 100);
   if (!name) return gd.schild || gd.wunsch; return p >= 100 ? `${name} · ${TX.gebaut}` : `${name} · ${fuell(TX.fertig_zu, { p })}`; };
-for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.schildP) neuSchild({ u: gd.mitte.u, w: gd.mitte.w, dach: gd.schildP, groesse: 14, bewohner: [], prio: PRIO.bau }, `<span>${esc(bauTitel(gd))}</span><span class="klein">${esc(TX.wunsch_von)} @${esc(gd.von)}</span>`, "arbeit");
+for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.schildP && (gd.von || gd.name)) neuSchild({ u: gd.mitte.u, w: gd.mitte.w, dach: gd.schildP, groesse: 14, bewohner: [], prio: PRIO.bau }, `<span>${esc(bauTitel(gd))}</span>` + (gd.von ? `<span class="klein">${esc(TX.wunsch_von)} @${esc(gd.von)}</span>` : ""), "arbeit");
 for (const gd of W_GEB) if (gd.typ !== "palisade_baustelle" && gd.typ !== "holzfaellerhuette" && gd.schildP && gd.von)
   neuSchild({ u: gd.u, w: gd.w, dach: gd.schildP, groesse: 8, bewohner: [], prio: PRIO.bau }, `<span>${esc(bauTitel(gd))}</span><span class="klein">${esc(TX.wunsch_von)} @${esc(gd.von)}</span>`, "arbeit");
 for (const bp of W_BP) if (bp.wunsch) neuSchild({ u: bp.u, w: bp.w, dach: new THREE.Vector3(bp.u, hoehe(bp.u, bp.w) + 2.2, -bp.w), groesse: 7, bewohner: [], prio: PRIO.platz },
@@ -1202,6 +1273,7 @@ function schleife(ts) {
   bewegen(c, t, ng, NS * (WETTER === "nebel" ? .8 : 1), 2);   // 18.10.: Feuerschatten (Wuerfel = 6 Durchgaenge) tags gar nicht, nachts jedes 4. Bild neu
   FEUERSCHATTEN = (FEUERSCHATTEN + 1) % 4; for (const f of c.FEUER) { f.pl.shadow.autoUpdate = false; if (ng > .35 && FEUERSCHATTEN === 0 || FPS.n < 2) f.pl.shadow.needsUpdate = true; } leben(t); ALLTAG.tick(ZEIT.sek(), t); ansicht(); NIED?.tick(t); renderer.render(c.scene, cam); schilder(); FPS.n++;
   if (ts - (UHR_T || 0) > 10000) { UHR_T = ts; uhrText(); }
+  { const e = K.b > 80; if (LOD.stand !== e) { LOD.stand = e; LOD.detail.forEach(m => m.visible = !e); LOD.einfach.forEach(m => m.visible = e); } }   // ferne Viertel: einfach beim Herauszoomen
   LEISTUNG.n++; if (ts - LEISTUNG.t0 > 3000) { const fps = LEISTUNG.n * 1000 / (ts - LEISTUNG.t0); LEISTUNG.t0 = ts; LEISTUNG.n = 0; LEISTUNG.letzt = fps;   // schwache Bildrate: Niederschlag aus
     if (!LEISTUNG.voll && LEISTUNG.runden++ > 0 && fps < 20) { if (++LEISTUNG.schwach >= 2 && NIED && !NIED.aus) { NIED.aus = true; NIED.pts.visible = false; } } else LEISTUNG.schwach = 0; }
 }
