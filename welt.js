@@ -777,11 +777,15 @@ const BAUTEN = {
     const hz = holzstapel(3); hz.position.set(L / 2 + 1.4, 0, T / 2 + 1.2); hz.rotation.y = Math.PI / 2; g.add(hz);
     g.add(box(1.6, .5, .6, mat("holz"), 0, .25, T / 2 + 3.6));   // Wassertrog
     return g; },
-  gemeinschaftsfeld() {   // 18.10. Upgrade Tag 3: gemeinsames Feld — gepfluegt, erste Saatreihen, niedriger Zaun (ca. 22 x 16 m)
-    const g = new THREE.Group(), lx = 22, lz = 16;
+  gemeinschaftsfeld(gd = {}) {   // 18.10. Upgrade Tag 3: gemeinsames Feld — Zustand gepfluegt / gruen / reif, niedriger Zaun (ca. 22 x 16 m), optional Vogelscheuche
+    const g = new THREE.Group(), lx = 22, lz = 16, zu = gd.zustand || "saat";
     g.add(box(lx, .08, lz, mat("acker"), 0, .02, 0));
     for (let i = 0; i < 14; i++) g.add(box(lx * .94, .12, .32, mat(i % 2 ? "ackerHell" : "erdeDunkel"), 0, .08, -lz / 2 + (i + .5) * lz / 14));
-    for (let i = 0; i < 5; i++) for (let k = 0; k < 18; k++) g.add(box(.22, .28, .22, mat(0x6f9a3e), -lx * .45 + k * lx * .9 / 17, .2, -lz / 2 + (i + .5) * lz / 14));   // erste Saatreihen
+    const reihen = zu === "gepfluegt" ? 0 : zu === "saat" ? 5 : 14, farbe = zu === "reif" ? 0xd9b04a : 0x6f9a3e, hoch = zu === "reif" ? .75 : zu === "gruen" ? .45 : .28;
+    for (let i = 0; i < reihen; i++) g.add(box(lx * .9, hoch, .4, mat(farbe), 0, hoch / 2 + .06, -lz / 2 + (i + .5) * lz / 14));   // Saatreihen (eine Reihe = ein Mesh)
+    if (gd.vogelscheuche) { const v = new THREE.Group(); v.add(box(.1, 2.2, .1, mat("holzDunkel"), 0, 1.1, 0)); v.add(box(1.4, .08, .08, mat("holzDunkel"), 0, 1.7, 0));
+      v.add(box(.5, .7, .3, mat(0x8a3b2a), 0, 1.5, 0)); const kp = mesh(new THREE.IcosahedronGeometry(.2, 0), mat("heu")); kp.position.y = 2.1; v.add(kp);
+      const hut = mesh(new THREE.ConeGeometry(.32, .3, 7), mat("heu")); hut.position.y = 2.35; v.add(hut); v.position.set(2, 0, 1.5); g.add(v); }
     const pf = (x, z) => g.add(box(.14, .8, .14, mat("holzDunkel"), x, .4, z));
     for (let k = 0; k <= 11; k++) { const x = -lx / 2 - .4 + k * (lx + .8) / 11; pf(x, -lz / 2 - .4); pf(x, lz / 2 + .4); }
     for (let k = 1; k < 8; k++) { const z = -lz / 2 - .4 + k * (lz + .8) / 8; pf(-lx / 2 - .4, z); pf(lx / 2 + .4, z); }
@@ -940,7 +944,7 @@ for (const { pr, fern, m } of BUENDEL.values()) {
     im.castShadow = im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im); liste && liste.push(im); });
   setz(pr.teile, fern ? LOD.detail : null); if (fern) setz(einfacheHuette(), LOD.einfach); }
 window.__buendel = () => ({ vorlagen: PROTO.size, buendel: BUENDEL.size, huetten: [...BUENDEL.values()].reduce((s, b) => s + b.m.length, 0) });
-for (const gd of W_GEB) { const g = BAUTEN[gd.typ] ? BAUTEN[gd.typ]() : ARBEIT.includes(gd.typ) ? hausFuer(gd.typ, gd.seed || 7) : null; if (!g) continue;
+for (const gd of W_GEB) { const g = BAUTEN[gd.typ] ? BAUTEN[gd.typ](gd) : ARBEIT.includes(gd.typ) ? hausFuer(gd.typ, gd.seed || 7) : null; if (!g) continue;
   (g.userData.stapelExtra || []).forEach(x => x.visible = true);   // Holz ist schon gesammelt
   setze(g, gd.u, gd.w, gd.rot || 0); if (g.userData.festeHoehe !== undefined) g.position.y = g.userData.festeHoehe; const p = gd.fortschritt ?? 1;
   if (p < 1) { if (g.userData.stufen) bauStufe(g, p); else { g.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(g), hz = bb.min.y + .15 + p * (bb.max.y - bb.min.y);   // Bau waechst von unten
