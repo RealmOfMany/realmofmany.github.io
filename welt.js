@@ -7,7 +7,7 @@
 addEventListener("error", e => window.__fehler = String(e.message)); addEventListener("unhandledrejection", e => window.__fehler = String(e.reason));
 import * as THREE from "three";
 const P = new URLSearchParams(location.search);
-const CFG = { tex: true, weich: true, nurTag: P_NACHT() };   // 18.10. 20:00 Anthony: "erstmal nur Tag im Live" — nurTag=false schaltet Tag/Nacht wieder ein
+const CFG = { tex: true, weich: true, nurTag: P_NACHT(), tiere: false, kleidung: false };   // tiere/kleidung: eigene Releases (18.10. 22 Uhr)   // 18.10. 20:00 Anthony: "erstmal nur Tag im Live" — nurTag=false schaltet Tag/Nacht wieder ein
 let scene, WEILER = false, NB, SPERRE = [], EMITTER = [], FENSTERLICHT = [], FENSTERMAT = [], FEUER = [], RAUCH = [], MENSCHEN = [], WOLKEN = [], SCHAFE = [], GLANZ = [];
 let flussW, PFADE = [], PLATZ = [], hoeheFn;
 let aufWeg = () => false;
@@ -902,6 +902,7 @@ uhrText();
 // ---- Lage der Haeuser: in Einzugsreihenfolge auf einer Spirale um das Feuer, frei von Bach/Feuer/Unterstand; Fischerhuetten ans Ufer
 WEILER = false; flussW = u => 9.5 + 1.8 * Math.sin(u / 5) + .6 * Math.sin(u / 2.3); PFADE = []; PLATZ = [[0, 0, 2.6]]; hoeheFn = hoeheDorf;
 const DORF_MITTE_W = 19.5, LAGE = [], belegt = [[0, 0, 4.5], [-3.6, .9, 3.2], [1.9, .5, 2]];
+const DOERFER = [DATEN.dorf2, DATEN.dorf3].map((d, i) => d && d.status === "angelegt" ? Object.assign(d, { nr: i + 2 }) : null).filter(Boolean);   // 18.10. 22:30: weitere Doerfer
 const W_GEB = DATEN.gebaeude || [], W_BP = DATEN.bauplaetze || [], W_DEKO = DATEN.deko || [], W_BERUFE = DATEN.berufe || {};   // aus data/welt-zustand.json (17.10.)
 for (const g of W_GEB) belegt.push([g.u, g.w, 5.2]); for (const g of W_BP) belegt.push([g.u, g.w, 3.0]); for (const g of W_DEKO) belegt.push([g.u, g.w, 1.6]);
 for (const h of DATEN.haeuser) if (h.u !== undefined) belegt.push([h.u, h.w, h.typ === "langhaus" ? 9.0 : 3.0]);   // v3: gespeicherte Plaetze (lage.py)
@@ -918,7 +919,7 @@ const W_VIERTEL = DATEN.viertel || [], imViertel = (u, w, v) => Math.hypot((u - 
 for (const v of W_VIERTEL) { v.huetten = LAGE.filter(l => imViertel(l.u, l.w, v)).length; v.offen = v.huetten > 0 || v.status === "rodung" || v.status === "offen"; }
 const VOFFEN = W_VIERTEL.filter(v => v.offen && v.id !== "kern"), VFREI = (u, w) => VOFFEN.some(v => Math.hypot((u - v.mitte.u) / 1.15, (w - v.mitte.w) / .95) <= v.r + 1.5);
 PFADE = VOFFEN.filter(v => v.weg).map(v => v.weg).concat((DATEN.dorf2 && DATEN.dorf2.status === "angelegt") ? (DATEN.strassen || []) : []);   // 18.10.: Strasse nach Dorf 2
-const maxR = Math.max(10, ...LAGE.map(l => Math.hypot(l.u, (l.w - 1) / 1.15)), ...[...W_GEB, ...W_BP].map(g => Math.hypot(g.u, (g.w - 1) / 1.15)), DORF_MITTE_W + 6,
+const maxR = Math.max(10, ...LAGE.map(l => Math.hypot(l.u, (l.w - 1) / 1.15)), ...DOERFER.map(d => Math.hypot(d.u, d.w) + 20), ...[...W_GEB, ...W_BP].map(g => Math.hypot(g.u, (g.w - 1) / 1.15)), DORF_MITTE_W + 6,
   ...VOFFEN.map(v => Math.hypot(v.mitte.u, (v.mitte.w - 1) / 1.15) + v.r * .8));
 window.__lage = LAGE.map(l => [l.typ, +l.u.toFixed(2), +l.w.toFixed(2)]);
 const NS = Math.max(.6, (maxR + 9) / 23);                               // Nebel weicht mit dem Dorf
@@ -963,7 +964,7 @@ if (W_WEGE.length) {
       let tu = q[0] - p[0], tw = q[1] - p[1]; const tl = Math.hypot(tu, tw) || 1; tu /= tl; tw /= tl;
       const nass = Math.abs(w - flussW(u)) < 3.0;
       const hb = b * .5 * (1 + .16 * (fbm(u * .35 + 7, w * .35) - .5) * 2), hl = hb * (1 + .12 * (rausch(u * 1.7, w * 1.3) - .5)), hr = hb * (1 + .12 * (rausch(u * 1.3 + 9, w * 1.7) - .5));
-      for (let ru = -Math.ceil(hb); ru <= Math.ceil(hb); ru++) for (let rw = -Math.ceil(hb); rw <= Math.ceil(hb); rw++) {
+      for (let ru = -Math.ceil(hb); ru <= Math.ceil(hb); ru++) for (let rw = -Math.ceil(hb); rw <= Math.ceil(hb); rw++) { if (Math.hypot(ru, rw) * RC > hb + .35) continue;
         const gi = Math.round((u + ru * RC - RU0) / RC), gj = Math.round((w + rw * RC - RW0) / RC); if (gi >= 0 && gj >= 0 && gi < RNU && gj < RNW) RAST[gi * RNW + gj] = Math.max(RAST[gi * RNW + gj], hb); }
       if (nass) { offen = false; continue; }
       const y = yMax(u, w, hb) + (haupt ? .07 : .06) + (pfad ? -.005 : 0), nu = -tw, nw = tu, mh = fbm(u * .5, w * .5);
@@ -1040,8 +1041,8 @@ for (const gd of W_GEB) { const g = BAUTEN[gd.typ] ? BAUTEN[gd.typ](gd) : ARBEIT
   const bb = new THREE.Box3().setFromObject(g); gd.schildP = gd.schildP || new THREE.Vector3(gd.u, Math.max(bb.max.y, hoehe(gd.u, gd.w) + 1.5) + 1.2, -gd.w); }
 for (const bp of W_BP) { setze(BAUTEN.bauplatz(bp.groesse || 3.4), bp.u, bp.w, bp.rot ?? B); SPERRE.push([bp.u, bp.w, (bp.groesse || 3.4) * 2.1]); }
 for (const dk of W_DEKO) { if (!BAUTEN[dk.typ]) continue; setze(BAUTEN[dk.typ](), dk.u, dk.w, R() * 6); SPERRE.push([dk.u, dk.w, 1.4]); }
-if (DATEN.dorf2 && DATEN.dorf2.status === "angelegt") {   // 18.10.: kleiner Dorfplatz von Dorf 2 (Steinkreis, Feuerstelle, Baenke)
-  const d2 = DATEN.dorf2, g = new THREE.Group();
+for (const d2 of DOERFER) {   // 18.10.: kleiner Dorfplatz von Dorf 2 (ab 22:30 auch Dorf 3): Steinkreis, Feuerstelle, Baenke
+  const g = new THREE.Group();
   g.add(box(9, .05, 9, mat(0x9b7b4e), 0, .02, 0));
   for (let i = 0; i < 14; i++) { const a = i / 14 * 6.283, s_ = mesh(new THREE.DodecahedronGeometry(.32, 0), mat("stein")); s_.position.set(Math.cos(a) * 1.3, .12, Math.sin(a) * 1.3); g.add(s_); }
   for (let i = 0; i < 4; i++) { const h = box(.08, .08, 1.0, mat("stamm"), 0, .1, 0); h.rotation.y = i * .8; g.add(h); }
@@ -1147,13 +1148,16 @@ for (const f of W_FIG) {
 }
 // Kleine Polen-Flagge am Haus (weiss/rot, Mast, weht leicht) — @wujekblazej, @benedykt.photography
 FIG.flaggen = []; FIG.schaukeln = [];
+const wegFrei = (u, w, r = 1) => { if (!aufWeg(u, w, 0) && !aufWeg(u + r, w, 0) && !aufWeg(u - r, w, 0) && !aufWeg(u, w + r, 0) && !aufWeg(u, w - r, 0)) return [u, w];   // 18.10. 22 Uhr: nie auf einem Weg
+  for (let d = 1; d < 12; d += .5) for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283, x = u + Math.cos(a) * d, y = w + Math.sin(a) * d;
+    if (!aufWeg(x, y, 0) && !aufWeg(x + r, y, 0) && !aufWeg(x - r, y, 0) && !aufWeg(x, y + r, 0) && !aufWeg(x, y - r, 0) && Math.abs(y - flussW(x)) > 3.4) return [x, y]; } return [u, w]; };
 for (const f of W_FIG) {
   const l = LAGE.find(x => x.bewohner.includes(f.handle)); if (!l) continue;
-  if (f.typ === "flagge") { const u = l.u + 2.4, w = l.w - 1.6, g = new THREE.Group();
+  if (f.typ === "flagge") { const [u, w] = wegFrei(l.u + 2.4, l.w - 1.6, .5), g = new THREE.Group();
     g.add(box(.08, 3.4, .08, mat("holzDunkel"), 0, 1.7, 0)); const tuch = new THREE.Group(); tuch.position.set(0, 3.25, 0);
     tuch.add(box(1.0, .3, .03, mat(0xf4f1ea), .5, .15, 0)); tuch.add(box(1.0, .3, .03, mat(0xd4213d), .5, -.15, 0)); g.add(tuch);
     setze(g, u, w, .4); SPERRE.push([u, w, .6]); FIG.flaggen.push({ g, tuch, ph: u }); LEBEN.wurzeln.push(g); }
-  if (f.typ === "schaukel") { const u = l.u + 4.4, w = l.w - 3.8, g = new THREE.Group();
+  if (f.typ === "schaukel") { const [u, w] = wegFrei(l.u + 4.4, l.w - 3.8, 1.6), g = new THREE.Group();
     const st = mesh(new THREE.CylinderGeometry(.22, .32, 3.6, 7), mat("stamm")); st.position.y = 1.8; g.add(st);
     const ast = mesh(new THREE.CylinderGeometry(.1, .14, 2.0, 6), mat("stamm")); ast.rotation.z = Math.PI / 2; ast.position.set(.9, 3.3, 0); g.add(ast);
     for (const [x, y, z, rr2] of [[0, 4.3, 0, 1.5], [.9, 4.0, .4, 1.1], [-.5, 3.9, -.3, 1.0]]) { const k = mesh(new THREE.IcosahedronGeometry(rr2, 0), mat("laub2")); k.position.set(x, y, z); g.add(k); }
@@ -1201,26 +1205,61 @@ const WALD = (() => {
 { // ---- Wald (18.10. 17 Uhr, Fix): Baeume nach Abstand zu den Siedlungen statt ueber die ganze (riesige) Welt —
   // Lichtungen in den Vierteln, dichter Wald dazwischen und rundherum, Waldguertel zwischen Dorf 1 und Dorf 2. Gleiche Dichte wie vor Dorf 2.
   const ORTE = [...W_VIERTEL.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_GEB.filter(g => g.u !== undefined).map(g => [g.u, g.w, 8]), [0, 0, 10], [0, DORF_MITTE_W, 14]];
-  if (DATEN.dorf2 && DATEN.dorf2.status === "angelegt") ORTE.push([DATEN.dorf2.u, DATEN.dorf2.w, 12]);
+  for (const d of DOERFER) ORTE.push([d.u, d.w, 12]);
+  const WALDKERN = [...(DATEN.flaechen || []).filter(f => f.art === "landschaft").map(f => [f.u, f.w, 60]), ...DOERFER.map(d => [d.u, d.w, 260])];   // 18.10. 22:40: Landschaftsguertel = dichter Wald
   const nahDistGenau = (u, w) => { let m = 1e9; for (const [a, b, rr2] of ORTE) { const d = Math.hypot(u - a, (w - b) * .9) - rr2; if (d < m) m = d; } return m; };
-  const U0 = Math.min(...ORTE.map(o => o[0])) - 90, U1 = Math.max(...ORTE.map(o => o[0])) + 90, W0 = Math.min(...ORTE.map(o => o[1])) - 80, W1 = Math.max(...ORTE.map(o => o[1])) + 90;
-  const ZIEL = 30000, VERSUCHE = 140000; let n = 0;
+  const U0 = Math.min(...ORTE.map(o => o[0])) - 150, U1 = Math.max(...ORTE.map(o => o[0])) + 150, W0 = Math.min(...ORTE.map(o => o[1])) - 110, W1 = Math.max(...ORTE.map(o => o[1])) + 120;
+  const ZIEL = 36000, VERSUCHE = 220000; let n = 0;
   const C = 6, NX = Math.ceil((U1 - U0) / C) + 1, NW = Math.ceil((W1 - W0) / C) + 1, GR = new Float32Array(NX * NW);   // Abstands-Raster (schnell)
   for (let i = 0; i < NX; i++) for (let j = 0; j < NW; j++) GR[i * NW + j] = nahDistGenau(U0 + i * C, W0 + j * C);
   const nahDist = (u, w) => GR[Math.round((u - U0) / C) * NW + Math.round((w - W0) / C)];
   for (let i = 0; i < VERSUCHE && n < ZIEL; i++) { const u = rr(U0, U1), w = rr(W0, W1), d = nahDist(u, w);
-    if (d > 85) continue; const dicht = fbm(u * .07 + 5, w * .07 - 2);
+    if (d > 150 && !WALDKERN.some(([a, b, r]) => Math.hypot(u - a, w - b) < r)) continue; const dicht = fbm(u * .07 + 5, w * .07 - 2);
     const p = d < 4 ? 0 : d < 22 ? .06 + .2 * dicht : .35 + .5 * sst(.3, .7, dicht);   // Lichtung -> Waldrand -> Wald
     if (R() > p || !frei(u, w, .8) || Math.hypot(u, w) < 5.5 || VFREI(u, w)) continue;
     WALD.baum(dicht > .6 && R() < .6 ? "tanne" : "laub", rr(.8, 1.3), u, w, R() * 6, d > 55); SPERRE.push([u, w, 1.2]); n++; }
   for (const dk of W_DEKO) if (dk.typ === "baum") { WALD.baum(R() < .25 ? "tanne" : "laub", rr(.9, 1.2), dk.u, dk.w, R() * 6, false); SPERRE.push([dk.u, dk.w, 1.2]); n++; }   // 18.10. abends: Baeume am Platz von Dorf 2
   window.__waldbaeume = n; }
 window.__baeume = WALD.fertig();
+// ---- Tiere ueberall (18.10. 22 Uhr): Huehner + Katzen an Huetten in allen Vierteln und Dorf 2, Rehe/Fuechse/Hasen am Waldrand und auf Lichtungen.
+// Alle instanziert (je Tierart + Material ein Draw-Call), nie im Wasser oder auf Wegen. Die Tiere der Mitte bleiben wie sie sind.
+const TIERE = { n: {} };
+if (CFG.tiere) { const RT = rng(90210), rr2 = (a, b) => a + RT() * (b - a), M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S3 = new THREE.Vector3(), E = new THREE.Euler();
+  const ok = (u, w, r = .6) => Math.abs(w - flussW(u)) > 3.4 + r && !aufWeg(u, w, 0) && !aufWeg(u + r, w, 0) && !aufWeg(u - r, w, 0) && Math.hypot(u, w) > 9;
+  const huhn = farbe => { const g = new THREE.Group(), f = mat(farbe); const k = mesh(new THREE.IcosahedronGeometry(.17, 0), f); k.scale.set(1.3, 1, .9); k.position.y = .26; g.add(k);
+    const ko = mesh(new THREE.IcosahedronGeometry(.09, 0), f); ko.position.set(.19, .43, 0); g.add(ko); g.add(box(.05, .07, .03, mat(0xc8302a), .19, .53, 0)); g.add(box(.07, .03, .03, mat(0xe0a030), .29, .42, 0));
+    g.add(box(.1, .14, .03, f, -.22, .36, 0)); for (const z of [-.05, .05]) g.add(box(.025, .14, .025, mat(0xd09030), 0, .07, z)); g.scale.setScalar(1.3); return g; };
+  const fuchs = () => { const g = new THREE.Group(), f = mat(0xc0602a), w = mat(0xf0e6d6); const k = mesh(new THREE.IcosahedronGeometry(.25, 0), f); k.scale.set(1.6, .8, .75); k.position.y = .36; g.add(k);
+    const ko = mesh(new THREE.ConeGeometry(.14, .34, 5), f); ko.rotation.z = -Math.PI / 2; ko.position.set(.48, .44, 0); g.add(ko); for (const z of [-.06, .06]) { const o = mesh(new THREE.ConeGeometry(.045, .12, 4), f); o.position.set(.38, .6, z); g.add(o); }
+    const sw = mesh(new THREE.ConeGeometry(.1, .5, 5), f); sw.rotation.z = Math.PI / 2 + .4; sw.position.set(-.55, .38, 0); g.add(sw); const sp = mesh(new THREE.ConeGeometry(.06, .14, 5), w); sp.rotation.z = Math.PI / 2 + .4; sp.position.set(-.8, .3, 0); g.add(sp);
+    for (const [x, z] of [[.22, .08], [.22, -.08], [-.22, .08], [-.22, -.08]]) g.add(box(.06, .26, .06, mat(0x3a2418), x, .13, z)); return g; };
+  const katz = () => { const g = katze(); return g; };
+  const art = (name, vorlage, liste, schatten = false) => { TIERE.n[name] = liste.length; if (!liste.length) return; const v = vorlage(); v.updateMatrixWorld(true);
+    for (const t of zerlegen(v)) { const im = new THREE.InstancedMesh(t.geo, t.m, liste.length); liste.forEach(([u, w, rot, sk], i) => im.setMatrixAt(i, M4.compose(V.set(u, hoehe(u, w), -w), Q.setFromEuler(E.set(0, rot, 0)), S3.setScalar(sk || 1))));
+      im.castShadow = schatten; im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im); } };
+  // Huehner + Katzen an Huetten (jede ~6. Huette ein kleiner Trupp, jede ~40. eine Katze vor der Tuer)
+  const huehner = [[], []], katzen = [];
+  LAGE.forEach((l, i) => { if (l.typ === "langhaus" || Math.hypot(l.u, l.w) < 12) return; const z = Math.abs(Math.round(l.u * 31 + l.w * 17));
+    if (z % 6 === 0) { const n = 2 + z % 3; for (let k = 0; k < n; k++) { const u = l.u + rr2(-3, 3), w = l.w - rr2(2.6, 4.6); if (ok(u, w, .3)) huehner[k % 2].push([u, w, RT() * 6.283, rr2(.9, 1.1)]); } }
+    if (z % 40 === 7) { const u = l.u + rr2(-1.2, 1.2), w = l.w - 3.1; if (ok(u, w, .3)) katzen.push([u, w, RT() * 6.283, .9]); } });
+  art("huehner_weiss", () => huhn(0xf2ece0), huehner[0]); art("huehner_braun", () => huhn(0x9a5a2a), huehner[1]); art("katzen", katz, katzen);
+  // Waldrand + Lichtungen: Ring um jedes offene Viertel und um beide Dorfplaetze (dort beginnt der Wald), dazu leere Viertel als Lichtung
+  const orte = [...VOFFEN.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_VIERTEL.filter(v => !v.offen && v.id !== "kern").map(v => [v.mitte.u, v.mitte.w, v.r * .6, true])];
+  const rehe = [], hasen = [], fuechse = [];
+  for (let i = 0; i < 2600 && rehe.length + hasen.length + fuechse.length < 330; i++) { const o = orte[Math.floor(RT() * orte.length)], lichtung = o[3], a = RT() * 6.283, d = lichtung ? RT() * o[2] : o[2] + rr2(2, 9);
+    const u = o[0] + Math.cos(a) * d, w = o[1] + Math.sin(a) * d; if (!ok(u, w, 1) || LAGE.some(l => Math.abs(l.u - u) < 6 && Math.abs(l.w - w) < 6)) continue;
+    const x = RT(); if (x < .32) { const n = 1 + Math.floor(RT() * 3); for (let k = 0; k < n; k++) { const uu = u + rr2(-2.5, 2.5), ww = w + rr2(-2.5, 2.5); if (ok(uu, ww, 1)) rehe.push([uu, ww, RT() * 6.283, rr2(.9, 1.05)]); } }
+    else if (x < .9) hasen.push([u, w, RT() * 6.283, 1]); else fuechse.push([u, w, RT() * 6.283, 1]); }
+  art("rehe", () => reh(false), rehe, true); art("hasen", hase, hasen); art("fuechse", fuchs, fuechse, true);
+  window.__tiere = () => TIERE.n; }
 const GEB_R = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5 };
 window.__inventar = () => { let pf = 0; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "CylinderGeometry") pf++; });
   return { fluss: FLUSS.mesh ? FLUSS.y.length : 0, baeume: window.__waldbaeume || 0, baum_teile: window.__baeume || 0, huetten: LAGE.length,
     huetten_im_wasser: LAGE.filter(l => Math.abs(l.w - flussW(l.u)) < 2.6).length,
-    objekte_im_wasser: [...W_GEB.filter(g => GEB_R[g.typ]).map(g => [g.u, g.w, GEB_R[g.typ], g.id]), ...W_DEKO.filter(d => d.u != null).map(d => [d.u, d.w, 1.5, d.typ]), ...(DATEN.figuren || []).filter(f => f.u != null).map(f => [f.u, f.w, 1, f.typ])].filter(([u, w, r]) => Math.abs(w - flussW(u)) - r < 3.6).map(x => x[3]), gebaeude: W_GEB.length, wege: W_WEGE.length, tore: W_GEB.reduce((n, g) => n + (g.tore || 0), 0), palisade_prozent: W_GEB.filter(g => g.typ === "palisade_baustelle").map(g => g.prozent), figuren: (DATEN.figuren || []).length,
+    objekte_auf_weg: [...W_DEKO.filter(d => d.u != null && !/reh|hase|voegel|fuchs|huhn/.test(d.typ)).map(d => [d.u, d.w, d.typ]), ...W_GEB.filter(g => /brunnen|holzturm/.test(g.typ)).map(g => [g.u, g.w, g.id]),
+      ...(FIG.fass ? [[FIG.fass.u, FIG.fass.w, "fass"]] : []), ...FIG.flaggen.map(f => [f.g.position.x, -f.g.position.z, "flagge"]), ...(FIG.schaukeln || []).map(f => [f.pendel.parent.position.x, -f.pendel.parent.position.z, "schaukel"])]
+      .filter(([u, w]) => aufWeg(u, w, 0)).map(x => x[2]),
+    objekte_im_wasser: [...W_GEB.filter(g => GEB_R[g.typ]).map(g => [g.u, g.w, GEB_R[g.typ], g.id]), ...W_DEKO.filter(d => d.u != null).map(d => [d.u, d.w, 1.5, d.typ]), ...(DATEN.figuren || []).filter(f => f.u != null).map(f => [f.u, f.w, 1, f.typ])].filter(([u, w, r]) => Math.abs(w - flussW(u)) - r < 3.6).map(x => x[3]), gebaeude: W_GEB.length, wege: W_WEGE.length, tiere: Object.values(TIERE.n).reduce((a, b) => a + b, 0), tierarten: TIERE.n, tore: W_GEB.reduce((n, g) => n + (g.tore || 0), 0), palisade_prozent: W_GEB.filter(g => g.typ === "palisade_baustelle").map(g => g.prozent), figuren: (DATEN.figuren || []).length,
     viertel: W_VIERTEL.length, deko: W_DEKO.length, schilder: SCH.length, bmax: Math.round(B_MAX) }; };
 gras(Math.round(2600 * NS * (SAISON.schnee ? .35 : 1)), [-30 * NS, 30 * NS], [-28 * NS, 40 * NS]); wolken(6);
 if (SAISON.laub) { const n = 64, im = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.42, 0), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 1 }), n);   // Laubhaufen (Herbst), 1 Draw-Call
@@ -1234,7 +1273,7 @@ const ALLTAG = alltagBauen();
 { const HV = P.has("huebsch") ? P.get("huebsch") : "ad" + (P.get("licht") === "c" ? "c" : ""), M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S3 = new THREE.Vector3(), E = new THREE.Euler();
   const HG = new Map(), hk = (u, w) => `${Math.floor(u / 6)},${Math.floor(w / 6)}`; for (const l of LAGE) { const k = hk(l.u, l.w); if (!HG.has(k)) HG.set(k, []); HG.get(k).push(l); }
   const nahHuette = (u, w, r) => { const i = Math.floor(u / 6), j = Math.floor(w / 6); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const l of HG.get(`${i + a},${j + b}`) || []) if (Math.hypot(l.u - u, l.w - w) < r) return true; return false; };
-  const W_ORTE = [...W_VIERTEL.filter(v => v.offen).map(v => [v.mitte.u, v.mitte.w, v.r * 1.2]), [0, 0, 14], [0, DORF_MITTE_W, 16]].concat(DATEN.dorf2 ? [[DATEN.dorf2.u, DATEN.dorf2.w, 16]] : []);
+  const W_ORTE = [...W_VIERTEL.filter(v => v.offen).map(v => [v.mitte.u, v.mitte.w, v.r * 1.2]), [0, 0, 14], [0, DORF_MITTE_W, 16]].concat(DOERFER.map(d => [d.u, d.w, 16]));
   const imDorf = (u, w) => W_ORTE.some(([a, b, r]) => Math.hypot(u - a, w - b) < r);
   const inst = (geo, m, liste) => { if (!liste.length) return; const im = new THREE.InstancedMesh(geo, m, liste.length); liste.forEach((x, i) => im.setMatrixAt(i, x)); im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im); };
   const mx = (u, y, w, ry, sx, sy, sz) => M4.clone().compose(V.set(u, y, -w), Q.setFromEuler(E.set(0, ry, 0)), S3.set(sx, sy, sz));
@@ -1286,7 +1325,7 @@ function alltagBauen() {
       if (s <= l || i === wg.pts.length - 1) { const f = Math.min(1, s / Math.max(l, 1e-3)); return { u: a.u + (b.u - a.u) * f, w: a.w + (b.w - a.w) * f, r: Math.atan2(b.u - a.u, -(b.w - a.w)) }; } s -= l; } };
   const SITZ = Array.from({ length: MAX }, (_, i) => { const a = (i < 6 ? 40 + 20 * i : -15 - 17 * (i - 6)) * Math.PI / 180, r = i < 6 ? 2.7 : 3.4; return { u: Math.cos(a) * r, w: Math.sin(a) * r }; });
   for (const p of leute) { const b = W_BERUFE[p.h]; p.tuer = { u: p.haus.u + ((p.z >> 4) % 3 - 1) * .6, w: p.haus.w - (p.haus.typ === "langhaus" ? 4.6 : 2.9) };
-    const gd = b === "Woodcutter" && W_GEB.find(x => x.typ === "holzfaellerhuette"), dk = b === "Berry gatherer" && W_DEKO.find(x => x.typ === "beerenbusch");
+    const gd = b === "Woodcutter" && W_GEB.find(x => x.typ === "holzfaellerhuette"), dk = /berry gatherer|herbalist/i.test(b || "") && W_DEKO.find(x => x.typ === "beerenbusch");
     const ort = (DATEN.arbeitsorte || {})[p.h], og = ort && W_GEB.find(x => x.id === ort);   // 18.10.: fester Arbeitsplatz (welche Schmiede / welches Feld)
     const istSchmied = /smith/i.test(b || ""), istFarmer = /farmer|shepherd/i.test(b || "");
     const esse = istSchmied && (og && (og.esse || og.essen) ? og : W_GEB.find(x => x.typ === "schmiede" && x.esse));
@@ -1298,7 +1337,9 @@ function alltagBauen() {
       : HALLE ? { u: HALLE.u + ((p.z % 5) - 2) * 1.5, w: HALLE.w - 5.2, pose: "rede", t: "t_halle" } : { ...p.tuer, pose: "steh", t: "t_arbeit" };
     p.hin = weg(p.tuer, p.arbeit); p.einzug = NEU.has(p.h);
     p.auf = 6.5 + (p.z % 60) / 60; p.feier = Math.min(ZEIT.unter, 18) - .25 + ((p.z >> 6) % 40) / 60; p.schlaf = 22 + ((p.z >> 9) % 50) / 60;
-    p.tuch = TUCH[p.z % TUCH.length]; p.kopf = [0xd9b964, 0x3a2a1a, 0x7a4a24, 0xb08a50, p.tuch][(p.z >> 3) % 5]; }
+    p.tuch = TUCH[p.z % TUCH.length]; p.kopf = [0xd9b964, 0x3a2a1a, 0x7a4a24, 0xb08a50, p.tuch][(p.z >> 3) % 5];
+    const KLEID = [[/smith/i, 0x4a3426, 0x2a1e16], [/farmer|shepherd/i, 0x8a7a3a, 0xd9b964], [/woodcutter/i, 0x5b6b34, 0x7a4a24], [/herbalist/i, 0x5f7a5a, 0x4a5a32], [/berry/i, 0x7a3a4a, 0xb08a50]].find(k => k[0].test(b || ""));
+    if (KLEID && CFG.kleidung) { p.tuch = KLEID[1]; p.kopf = KLEID[2]; } }   // 18.10. 22 Uhr: Berufskleidung (Schmied Lederschuerze, Farmer Strohhut, Holzfaeller gruen, Kraeuterkundige salbeigruen)
   // Teile (je ein InstancedMesh): Rumpf, Kopf, Kopfbedeckung, Arme, Beine, Werkzeug, Buendel
   const geo = { rumpf: new THREE.CylinderGeometry(.18, .29, .82, 7), kopf: new THREE.IcosahedronGeometry(.18, 1), hut: new THREE.ConeGeometry(.25, .36, 7),
     arm: new THREE.BoxGeometry(.11, .5, .12).translate(0, -.24, 0), bein: new THREE.BoxGeometry(.16, .72, .18).translate(0, -.36, 0),
@@ -1438,7 +1479,7 @@ const SINE = Math.sin(33 * Math.PI / 180), ASPS = innerHeight / innerWidth, NUTZ
 const startB = Math.min(140, Math.max(26, RU[1] - RU[0], (RW[1] - RW[0]) * SINE / (ASPS * NUTZ)));
 const K = { b: startB, u: (RU[0] + RU[1]) / 2, w: (RW[0] + RW[1]) / 2 + .02 * startB * ASPS / SINE - .10 * startB * ASPS / Math.sin(31 * Math.PI / 180) * .5, ziel: null };   // Inhalt-Mitte bei ~52 % Bildhoehe
 const START = { b: K.b, u: K.u, w: K.w };
-const ALLE_U = [0, ...LAGE.map(l => l.u)], B_WEIT = (Math.max(...ALLE_U) - Math.min(...ALLE_U)) * 1.12 + 60;   // 18.10. Fix: weit genug fuer beide Doerfer
+const ALLE_U = [0, ...LAGE.map(l => l.u), ...DOERFER.flatMap(d => [d.u - 250, d.u + 250])], B_WEIT = (Math.max(...ALLE_U) - Math.min(...ALLE_U)) * 1.12 + 60;   // 18.10. Fix: weit genug fuer beide Doerfer
 const B_MIN = 12, B_MAX = Math.min(Math.max(60, startB * 1.4, B_WEIT), TER * .5);   // nie weiter heraus, als Gelaende da ist
 function ansicht() { klemmen(); const z = K.b; kamera(c, z, K.u, K.w + .10 * z * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180) * .5, -4, 33); }
 const zeiger = new Map(); let zieh = null, pinch = null;
@@ -1488,8 +1529,8 @@ if (RENNEN) { const H = LAGE.find(l => l.typ === "langhaus"), u = H ? H.u + 7 : 
   neuSchild({ u, w, dach: new THREE.Vector3(u, hoehe(u, w) + 1.2, -w), groesse: 6, bewohner: [], prio: PRIO.bau - 1 },
     `<span class="klein">${esc(TX.rennen_titel)}</span>` + RENNEN.top.slice(0, 3).map((x, i) => `<span>${i + 1}. ${esc(x.text)} · ${+x.likes || 0}♥</span>`).join(""), "tafel"); }
 for (const v of W_VIERTEL) if (v.schildP) neuSchild({ u: v.mitte.u, w: v.mitte.w, dach: v.schildP, groesse: 10, bewohner: [], prio: PRIO.platz }, `<span>${esc(TX.rodung)}</span><span class="klein">${esc(TX.rodung_klein)}</span>`, "platz");
-if (DATEN.dorf2 && DATEN.dorf2.schildP) neuSchild({ u: DATEN.dorf2.u, w: DATEN.dorf2.w, dach: DATEN.dorf2.schildP, groesse: 10, bewohner: [], prio: PRIO.bau },
-  `<span>${esc(TX.dorf2 || "Village 2")}</span><span class="klein">${esc(TX.dorf2_klein || "new since Day 3")}</span>`, "arbeit");
+for (const d of DOERFER) if (d.schildP) neuSchild({ u: d.u, w: d.w, dach: d.schildP, groesse: 10, bewohner: [], prio: PRIO.bau },
+  `<span>${esc(TX["dorf" + d.nr] || "Village " + d.nr)}</span><span class="klein">${esc(TX["dorf" + d.nr + "_klein"] || "new since Day 3")}</span>`, "arbeit");
 const FIGURSCHILD = (() => { const d = document.createElement("div"); d.className = "schild an figur"; HUD.schilder.appendChild(d); const s = { l: { u: 0, w: 0, dach: new THREE.Vector3(), bewohner: [], prio: 90, bis: 0 }, d }; SCH.push(s); return s; })();
 for (const dk of W_DEKO) if (dk.typ === "beerenbusch") { const hs = Object.keys(W_BERUFE).filter(h => W_BERUFE[h] === "Berry gatherer");
   if (hs.length) neuSchild({ u: dk.u, w: dk.w, dach: new THREE.Vector3(dk.u, hoehe(dk.u, dk.w) + 2.4, -dk.w), groesse: 5, bewohner: [], prio: PRIO.arbeit }, `<span class="klein">${esc(dk.schild || "Berry gatherers")}</span>` + hs.map(h => `<span class="hd">@${esc(h)}</span>`).join(""), "arbeit"); }
