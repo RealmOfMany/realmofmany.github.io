@@ -33,6 +33,29 @@ const PAL = {
   stein: 0x9d9686, steinDunkel: 0x77705f, laub: 0x5c7330, laub2: 0x758739, laub3: 0x928a3a, tanne: 0x3f5530, stamm: 0x5e4128,
   wasser: 0x5e8479, haut: 0xe0b48c, schaf: 0xe9e1cc, fels: 0x8f897b, felsHell: 0xcfc9bd, fenster: 0x2b1f15, heu: 0xd9b964,
 };
+// ==== SAISON (Quelle: web/saison_teil.js — gemeinsam fuer Welt-Seite und Reels; welt_bauen.py/reel_tag.py setzen diesen Block ein) ====
+// Jahreszeit nach dem deutschen Kalender (Anthony 17.10.: Reels uebernehmen die Jahreszeit, nicht die Tageszeit).
+// ?monat=1..12 erzwingt einen Monat (Pruefung, Reels). Wirkt nur ueber PAL + Material-Haken, vor dem Bau der Szene.
+const SAISON = (() => {
+  const q = new URLSearchParams(location.search), z = +q.get("monat");
+  const m = z >= 1 && z <= 12 ? z : +new Intl.DateTimeFormat("en", { timeZone: "Europe/Berlin", month: "numeric" }).format(new Date());
+  const name = m === 12 || m <= 2 ? "winter" : m <= 5 ? "spring" : m <= 8 ? "summer" : "autumn";
+  return { monat: m, name, schnee: name === "winter", laub: m === 10 || m === 11 };
+})();
+{ const W = { gras: 0xdfe3e2, gras2: 0xd3d8d6, grasOcker: 0xc8cabf, grasDunkel: 0xb3b9b1, erde: 0x8d8174, erdeDunkel: 0x726658,
+    laub: 0xc4c8c3, laub2: 0x8f8677, laub3: 0xd9ddda, tanne: 0x3a4d36, wasser: 0x6f8b90, heu: 0xe8e4da };
+  const FR = { gras: 0x6f9a3e, gras2: 0x86a046, grasOcker: 0x9aa452, grasDunkel: 0x557a32, laub: 0x6a9a3c, laub2: 0x8bb04a };
+  const SO = { gras: 0x6c8a3a, gras2: 0x7f9442, grasOcker: 0x9a9a4e, grasDunkel: 0x56702f, laub: 0x4f7a2c, laub2: 0x678f36, laub3: 0x7e9a3c };
+  const TAB = { 12: { ...W, gras: 0xcfd4cf, gras2: 0xc3c9c0 }, 1: W, 2: { ...W, gras: 0xd2d7d2 },
+    3: { ...FR, laub3: 0x9aa850, grasOcker: 0xa49a58 }, 4: { ...FR, laub3: 0xe6c4cf }, 5: { ...FR, laub3: 0xf0e4d8 },
+    6: SO, 7: SO, 8: { ...SO, grasOcker: 0xaa9e52 }, 9: {},
+    10: { laub: 0x6e7a32, laub2: 0xc0802c, laub3: 0xa4502a, grasOcker: 0xb09a50, gras2: 0x948c46 },
+    11: { laub: 0x7a6a3a, laub2: 0x9a6a30, laub3: 0x7e4a2c, gras: 0x6f7440, grasOcker: 0x9c8a50 } };
+  Object.assign(PAL, TAB[SAISON.monat] || {}); }
+// Material-Haken (mat() ruft ihn auf): im Winter liegt Schnee auf Stroh- und Schindeldaechern
+function SAISON_MAT(key, m) {
+  if (SAISON.schnee && ["stroh", "strohDunkel", "schindel"].includes(key)) { m.map = null; m.color.setHex(key === "strohDunkel" ? 0xdfe4e8 : 0xeef1f4); m.needsUpdate = true; } }
+// ==== /SAISON ====
 // ---------------------------------------------------------------- Texturen (handgemalt wirkend, Canvas)
 const css = (c, f = 1) => { const r = Math.min(255, ((c >> 16) & 255) * f), g = Math.min(255, ((c >> 8) & 255) * f), b = Math.min(255, (c & 255) * f); return `rgb(${r | 0},${g | 0},${b | 0})`; };
 function leinwand(f, S = 256) { const c = document.createElement("canvas"); c.width = c.height = S; const g = c.getContext("2d"); const alt = R; R = rng(S + f.length); f(g, S); R = alt;
@@ -91,6 +114,7 @@ function mat(key, o = {}) {
       laub3: PAL.laub3, tanne: PAL.tanne, weizen2: 0xe0d0b0, heu: 0xfff0d0 }[key] ?? 0xffffff;
     m = new THREE.MeshStandardMaterial({ ...base, map: TEX[texKey], color: tint, ...o });
   } else m = new THREE.MeshStandardMaterial({ ...base, color: PAL[key] ?? key, ...o });
+  if (typeof SAISON_MAT === "function") SAISON_MAT(key, m);
   MC.set(k, m); return m;
 }
 const farbe = c => mat(c);   // reine Farbe (Kleidung u. a.)
@@ -747,9 +771,59 @@ function bauStufe(g, p) {   // Zeitraffer: 0 nichts, .25 Fundament, .6 Waende, .
 renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
 const DATEN = await fetch("./daten.json?v=" + Date.now()).then(r => r.json());
 const HUD = { suche: document.getElementById("suche"), meldung: document.getElementById("meldung"), schilder: document.getElementById("schilder") };
+// Sichtbare Texte kommen aus daten.json (welt-config.json "texte", wunsch.json, welt-zustand.json); hier nur Ersatz, falls ein Feld fehlt (17.10.)
+const TX = { wunsch_titel: "Today's wish", wunsch_von: "wish by", naechster: "", nicht_da: "@{h} isn't here yet — new followers move in at the next count.",
+  nicht_da_n: "@{h} isn't here yet — new followers move in at the next count ({n}× a day).", hier: "Here lives @{h}", geteilt: "Shared house · {alle}",
+  leeres_haus: "Common house", rennen_titel: "Wish race", rennen_hinweis: "comment on the latest reel — most likes gets built",
+  seit: "Since your last visit:", seit_neu: "{namen} moved in", seit_weg: "{n} moved away", seit_bau: "{name} +{plus} %", seit_bau_neu: "new: {name}",
+  gebaut: "built", geplant: "planned", rodung: "Clearing the forest", rodung_klein: "room for new cabins", fertig_zu: "{p} % built",
+  t_arbeit: "at work", t_weg: "on the way", t_heim: "heading home", t_feuer: "by the fire", t_einzug: "moving in", t_halle: "at the Village Hall",
+  saison: { winter: "winter", spring: "spring", summer: "summer", autumn: "autumn" }, wetter: { regen: "rain", schnee: "snow", nebel: "mist", klar: "" },
+  ...(DATEN.texte || {}) };
+const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const fuell = (t, o) => t.replace(/\{(\w+)\}/g, (_, k) => o[k] ?? "");
 document.getElementById("kopfzahl").textContent = `Day ${DATEN.tag} · ${DATEN.einwohner} ${DATEN.einwohner === 1 ? "soul" : "souls"}`;
-document.getElementById("wunsch").innerHTML = DATEN.wunsch ? `<b>Today's wish:</b> ${DATEN.wunsch.text}` + (DATEN.wunsch.von ? ` <span>— @${DATEN.wunsch.von}</span>` : "")
-  : `<b>Today's wish:</b> comment under the latest reel — the most-liked wish gets built.`;
+const RENNEN = DATEN.wunsch_rennen && (DATEN.wunsch_rennen.top || []).length ? DATEN.wunsch_rennen : null;   // nur umgedeutete Texte (wachstum.py)
+{ const W = DATEN.wunsch, el = document.getElementById("wunsch");
+  el.innerHTML = (W ? `<b>${esc(W.titel || TX.wunsch_titel)}:</b> ${esc(W.text)}` + (W.von ? ` <span>— ${esc(TX.wunsch_von)} @${esc(W.von)}</span>` : "") : "")
+    + (RENNEN ? `<div class="naechster"><b>${esc(TX.rennen_titel)}:</b> ${RENNEN.top.slice(0, 3).map((x, i) => `${i + 1}. ${esc(x.text)} (${+x.likes || 0}♥)`).join(" · ")} — ${esc(TX.rennen_hinweis)}</div>`
+      : TX.naechster ? `<div class="naechster">${esc(TX.naechster)}</div>` : "");
+  if (!el.innerHTML) el.style.display = "none"; }
+
+// ---- Tageszeit nach deutscher Uhrzeit (Anthony 17.10.: fuer alle gleich, Uhrzeit klein in der Ecke). ?uhr=HH:MM simuliert.
+const ZEIT = (() => {
+  const q = P.get("uhr"), start = performance.now(), opt = { timeZone: "Europe/Berlin", hourCycle: "h23", year: "numeric", month: "numeric", day: "numeric", hour: "numeric", minute: "numeric", second: "numeric" };
+  const teile = () => Object.fromEntries(new Intl.DateTimeFormat("en-GB", opt).formatToParts(new Date()).map(x => [x.type, x.value]));
+  let basis; if (q) { const [h, m] = q.split(":").map(Number); basis = h * 3600 + (m || 0) * 60; }
+  const sek = () => { if (basis !== undefined) return (basis + (performance.now() - start) / 1000) % 86400; const t = teile(); return +t.hour * 3600 + +t.minute * 60 + +t.second; };
+  const t = teile(), mon = SAISON.monat, doy = P.get("monat") ? (mon - 1) * 30.4 + 15 : Math.floor((Date.UTC(+t.year, +t.month - 1, +t.day) - Date.UTC(+t.year, 0, 0)) / 864e5);
+  let sommer = mon >= 4 && mon <= 10;
+  if (!P.get("monat")) try { sommer = /GMT\+2/.test(new Intl.DateTimeFormat("en", { timeZone: "Europe/Berlin", timeZoneName: "shortOffset" }).format(new Date())); } catch (e) {}
+  const L = 12.2 + 4.55 * Math.sin(2 * Math.PI * (doy - 80) / 365), mittag = 12.1 + (sommer ? 1 : 0);   // Berlin: Tageslaenge 7.6–16.8 h
+  return { sek, auf: mittag - L / 2, unter: mittag + L / 2, text: () => { const s = sek(); return `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}`; } };
+})();
+function nachtGrad(stunde) {   // 0 Tag · .5 Daemmerung · 1 Nacht
+  const { auf, unter } = ZEIT, k = (a, b, x) => weich((x - a) / (b - a));
+  if (stunde < 12) return stunde < auf ? 1 - .5 * k(auf - 1, auf, stunde) : .5 - .5 * k(auf, auf + .75, stunde);
+  return stunde < unter ? .5 * k(unter - 1.25, unter, stunde) : .5 + .5 * k(unter, unter + 1, stunde); }
+const WETTER = (() => { const q = P.get("wetter"); if (q) return q;   // aus Datum + Jahreszeit (alle sehen dasselbe Wetter)
+  const d = +new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Berlin" }).format(new Date()).replace(/-/g, "") % 100000, x = h2(d, 77);
+  return SAISON.name === "winter" ? (x < .35 ? "schnee" : "klar") : SAISON.name === "autumn" ? (x < .28 ? "regen" : x < .48 ? "nebel" : "klar")
+    : SAISON.name === "spring" ? (x < .25 ? "regen" : "klar") : (x < .12 ? "regen" : "klar"); })();
+const UHR = document.getElementById("uhr");
+const uhrText = () => { if (UHR) UHR.textContent = [ZEIT.text(), TX.saison[SAISON.name], TX.wetter[WETTER]].filter(Boolean).join(" · "); };
+uhrText();
+// ---- "Since your last visit" (nur im Browser des Besuchers, localStorage; kein Server)
+{ const el = document.getElementById("seit"), KEY = "realm-besuch", bew = DATEN.haeuser.flatMap(h => h.bewohner), bau = {};
+  for (const g of DATEN.gebaeude || []) { const name = g.name || g.schild || g.wunsch; if (!name) continue;
+    if (g.fertig && g.n) bau[g.id] = [name, Math.round((g.fertig[1] - g.fertig[0]) / g.n * 100)]; else bau[g.id] = [name, Math.round((g.fortschritt ?? 1) * 100)]; }
+  let alt = null; try { alt = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
+  if (el && alt && Date.now() - alt.t > 6e5) { const teile = [], neu = bew.filter(h => !alt.bew.includes(h)), weg = alt.bew.filter(h => !bew.includes(h));
+    if (neu.length) teile.push(fuell(TX.seit_neu, { namen: neu.slice(0, 3).map(h => "@" + h).join(", ") + (neu.length > 3 ? ` +${neu.length - 3}` : "") }));
+    if (weg.length) teile.push(fuell(TX.seit_weg, { n: weg.length }));
+    for (const [id, [name, p]] of Object.entries(bau)) { const a = alt.bau?.[id]?.[1]; if (a === undefined) teile.push(fuell(TX.seit_bau_neu, { name })); else if (p > a) teile.push(fuell(TX.seit_bau, { name, plus: p - a })); }
+    if (teile.length) { el.innerHTML = `<b>${esc(TX.seit)}</b> ${esc(teile.join(" · "))}<button aria-label="close">×</button>`; el.style.display = "block"; el.querySelector("button").onclick = () => el.style.display = "none"; } }
+  if (!alt || Date.now() - alt.t > 6e5) try { localStorage.setItem(KEY, JSON.stringify({ t: Date.now(), bew, bau })); } catch (e) {} }
 
 // ---- Lage der Haeuser: in Einzugsreihenfolge auf einer Spirale um das Feuer, frei von Bach/Feuer/Unterstand; Fischerhuetten ans Ufer
 WEILER = false; flussW = u => 9.5 + 1.8 * Math.sin(u / 5) + .6 * Math.sin(u / 2.3); PFADE = []; PLATZ = [[0, 0, 2.6]]; hoeheFn = hoeheDorf;
@@ -765,9 +839,16 @@ DATEN.haeuser.forEach((h, i) => {
   for (let k = 0; k < 4000 && !pos; k++) { const a = (i * 2.399963 + k * .61) % (Math.PI * 2), rad = 1.15 * Math.sqrt(k * 9 + i * 6), u = Math.cos(a) * rad, w = DORF_MITTE_W + Math.sin(a) * rad * 1.15; if (passt(u, w, r)) pos = [u, w, 0]; }   // Dorf jenseits des Bachs (Anthony 16.10.)
   if (h.u === undefined) belegt.push([pos[0], pos[1], r]); LAGE.push({ ...h, typ, u: pos[0], w: pos[1], ufer: pos[2] });
 });
-const maxR = Math.max(10, ...LAGE.map(l => Math.hypot(l.u, (l.w - 1) / 1.15)), ...[...W_GEB, ...W_BP].map(g => Math.hypot(g.u, (g.w - 1) / 1.15)), DORF_MITTE_W + 6);
+// ---- Viertel (18.10.): offen = Huetten darin oder Status rodung/offen. Offene Viertel bekommen einen Trampelpfad, keinen Wald, Baumstuempfe + Holzstapel (Rodung).
+const W_VIERTEL = DATEN.viertel || [], imViertel = (u, w, v) => Math.hypot((u - v.mitte.u) / 1.15, (w - v.mitte.w) / .95) <= v.r;
+for (const v of W_VIERTEL) { v.huetten = LAGE.filter(l => imViertel(l.u, l.w, v)).length; v.offen = v.huetten > 0 || v.status === "rodung" || v.status === "offen"; }
+const VOFFEN = W_VIERTEL.filter(v => v.offen && v.id !== "kern"), VFREI = (u, w) => VOFFEN.some(v => Math.hypot((u - v.mitte.u) / 1.15, (w - v.mitte.w) / .95) <= v.r + 1.5);
+PFADE = VOFFEN.filter(v => v.weg).map(v => v.weg);
+const maxR = Math.max(10, ...LAGE.map(l => Math.hypot(l.u, (l.w - 1) / 1.15)), ...[...W_GEB, ...W_BP].map(g => Math.hypot(g.u, (g.w - 1) / 1.15)), DORF_MITTE_W + 6,
+  ...VOFFEN.map(v => Math.hypot(v.mitte.u, (v.mitte.w - 1) / 1.15) + v.r * .8));
 window.__lage = LAGE.map(l => [l.typ, +l.u.toFixed(2), +l.w.toFixed(2)]);
 const NS = Math.max(.6, (maxR + 9) / 23);                               // Nebel weicht mit dem Dorf
+const ZONE_R = maxR + 14, KACHEL = 45;   // 18.10.: ausserhalb ZONE_R wirft nichts Schatten (Fernwald); Dorf in Kacheln zusammengefasst
 
 // ---- Welt bauen
 const c = neueSzene({ c: [0, 2], r: [23 * NS, 46 * NS] }, NS);
@@ -785,16 +866,31 @@ for (const l of LAGE) {
   const bb = new THREE.Box3().setFromObject(g); l.dach = new THREE.Vector3(l.u, bb.max.y + .6, -l.w); l.groesse = Math.max(bb.max.x - bb.min.x, bb.max.z - bb.min.z);
   SPERRE.push([l.u, l.w, l.typ === "langhaus" ? 7 : l.typ === "doppelhaus" ? 5.5 : 4.4]);
 }
-for (const gd of W_GEB) { if (!BAUTEN[gd.typ]) continue; const g = BAUTEN[gd.typ](); (g.userData.stapelExtra || []).forEach(x => x.visible = true);   // Holz ist schon gesammelt
-  setze(g, gd.u, gd.w, gd.rot || 0); g.updateMatrixWorld(true); if (g.userData.kamin) EMITTER.push({ g, p: g.userData.kamin.clone() }); SPERRE.push([gd.u, gd.w, 4.8]); }
+for (const gd of W_GEB) { const g = BAUTEN[gd.typ] ? BAUTEN[gd.typ]() : ARBEIT.includes(gd.typ) ? hausFuer(gd.typ, gd.seed || 7) : null; if (!g) continue;
+  (g.userData.stapelExtra || []).forEach(x => x.visible = true);   // Holz ist schon gesammelt
+  setze(g, gd.u, gd.w, gd.rot || 0); const p = gd.fortschritt ?? 1;
+  if (p < 1) { if (g.userData.stufen) bauStufe(g, p); else { g.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(g), hz = bb.min.y + .15 + p * (bb.max.y - bb.min.y);   // Bau waechst von unten
+      g.traverse(o => { if (o.isMesh) o.visible = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3()).y < hz; }); } }
+  g.updateMatrixWorld(true); if (g.userData.kamin && p >= 1) EMITTER.push({ g, p: g.userData.kamin.clone() }); SPERRE.push([gd.u, gd.w, 4.8]);
+  const bb = new THREE.Box3().setFromObject(g); gd.schildP = gd.schildP || new THREE.Vector3(gd.u, Math.max(bb.max.y, hoehe(gd.u, gd.w) + 1.5) + 1.2, -gd.w); }
 for (const bp of W_BP) { setze(BAUTEN.bauplatz(bp.groesse || 3.4), bp.u, bp.w, bp.rot ?? B); SPERRE.push([bp.u, bp.w, (bp.groesse || 3.4) * 2.1]); }
 for (const dk of W_DEKO) { if (!BAUTEN[dk.typ]) continue; setze(BAUTEN[dk.typ](), dk.u, dk.w, R() * 6); SPERRE.push([dk.u, dk.w, 1.4]); }
+{ // Rodung: Stuempfe (1 Draw-Call fuer alle) + ein Holzstapel je offenem Viertel; frisch gerodet (Status rodung) = mehr Stuempfe
+  const st = []; for (const v of VOFFEN) { const n = v.status === "rodung" || v.huetten < 3 ? 16 : 9;
+    for (let i = 0, k = 0; i < 80 && k < n; i++) { const a = R() * 6.283, q = rr(.35, 1.05) * v.r, u = v.mitte.u + Math.cos(a) * q * 1.15, w = v.mitte.w + Math.sin(a) * q * .95;
+      if (frei(u, w, .5)) { st.push([u, w]); SPERRE.push([u, w, .8]); k++; } }
+    const a0 = Math.atan2(19.5 - v.mitte.w, -v.mitte.u), hu = v.mitte.u + Math.cos(a0) * v.r * .75, hw = v.mitte.w + Math.sin(a0) * v.r * .7;
+    if (frei(hu, hw, .8)) { setze(holzstapel(3), hu, hw, a0); SPERRE.push([hu, hw, 1.4]); }
+    if (v.status === "rodung" && !v.huetten) v.schildP = new THREE.Vector3(v.mitte.u, hoehe(v.mitte.u, v.mitte.w) + 2.2, -v.mitte.w); }
+  if (st.length) { const im = new THREE.InstancedMesh(new THREE.CylinderGeometry(.32, .4, .45, 7), mat("stamm"), st.length), m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion();
+    st.forEach(([u, w], i) => im.setMatrixAt(i, m4.compose(new THREE.Vector3(u, hoehe(u, w) + .2, -w), q4.setFromEuler(new THREE.Euler(0, R() * 6, 0)), new THREE.Vector3(1, rr(.7, 1.2), 1))));
+    im.castShadow = im.receiveShadow = true; scene.add(im); } }
 // ---- Part 2 (17.10. abends): Palisade-Baustelle, Tiere, laufende Bewohner — wie im Reel reel_tag02p2v2 (gleiche Lage/Formeln)
 const LEBEN = { rehe: [], hasen: [], voegel: [], laeufer: [], wurzeln: [] };
-for (const gd of W_GEB) if (gd.typ === "palisade_baustelle") {
+for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
   const C = gd.c, PR = gd.r, N = gd.n, PP = [];
   for (let i = 0; i < N; i++) { const a = (gd.von_grad + (gd.bis_grad - gd.von_grad) * i / (N - 1)) * Math.PI / 180, r0 = PR + (fbm(i * .08, 7.3) - .5) * 4; PP.push({ u: C.u + Math.cos(a) * r0, w: C.w + Math.sin(a) * r0, a }); }
-  const [V, Bi] = gd.fertig;
+  const V = Math.max(0, gd.fertig[0]), Bi = Math.min(N, gd.fertig[1]), KOMPLETT = V <= 0 && Bi >= N; gd.prozent = Math.round((Bi - V) / N * 100);
   for (const [i, p] of PP.entries()) {
     if (i >= V && i < Bi) { const g = new THREE.Group(), h = 2.5 + h2(i, 3) * .4;
       const sm = mesh(new THREE.CylinderGeometry(.2, .23, h, 7), mat(i % 3 ? "stamm" : "holz")); sm.position.y = h / 2; g.add(sm);
@@ -803,11 +899,12 @@ for (const gd of W_GEB) if (gd.typ === "palisade_baustelle") {
     SPERRE.push([p.u, p.w, 1.6]); }
   const seil = (a, b) => { const L = Math.hypot(b.u - a.u, b.w - a.w), sl = box(L, .04, .04, mat(0xe8dcc0)); sl.position.set((a.u + b.u) / 2, (hoehe(a.u, a.w) + hoehe(b.u, b.w)) / 2 + .7, -(a.w + b.w) / 2); sl.rotation.y = -Math.atan2(b.w - a.w, b.u - a.u); scene.add(sl); };
   for (let i = Bi; i < N - 5; i += 5) seil(PP[i], PP[i + 5]); for (let i = 5; i < V; i += 5) seil(PP[i - 5], PP[i]);
-  const M = PP[Math.round((V + Bi) / 2)], IN = { u: C.u + Math.cos(M.a) * (PR - 4), w: C.w + Math.sin(M.a) * (PR - 4) };
+  const M = PP[Math.min(N - 1, Math.round((V + Bi) / 2))], IN = { u: C.u + Math.cos(M.a) * (PR - 4), w: C.w + Math.sin(M.a) * (PR - 4) };
+  if (KOMPLETT) { gd.schildP = new THREE.Vector3(M.u, hoehe(M.u, M.w) + 4.2, -M.w); gd.mitte = M; continue; }
   const st = new THREE.Group(); for (let r0 = 0; r0 < 3; r0++) for (let k = 0; k < 6 - r0; k++) { const c2 = mesh(new THREE.CylinderGeometry(.22, .22, 3.6, 7), mat(k % 2 ? "stamm" : "holz"));
     c2.rotation.z = Math.PI / 2; c2.position.set(0, .22 + r0 * .4, -1.1 + k * .44 + r0 * .22); st.add(c2); }
   setze(st, IN.u + 3.5, IN.w - 1, M.a); SPERRE.push([IN.u + 3.5, IN.w - 1, 2.5]);
-  [PP[Bi + 1], PP[V - 2]].forEach((p, i) => { const m = mensch({ pose: "axt", tuch: i ? 0x5b6b34 : 0x7a4a5a, hut: !i }); const u = p.u - Math.cos(p.a) * 1.4, w = p.w - Math.sin(p.a) * 1.4;
+  [PP[Math.min(N - 1, Bi + 1)], PP[Math.max(0, V - 2)]].filter((p, i) => i ? V > 0 : Bi < N).forEach((p, i) => { const m = mensch({ pose: "axt", tuch: i ? 0x5b6b34 : 0x7a4a5a, hut: !i }); const u = p.u - Math.cos(p.a) * 1.4, w = p.w - Math.sin(p.a) * 1.4;
     m.position.set(u, hoehe(u, w), -w); m.rotation.y = Math.atan2(p.u - u, -(p.w - w)); scene.add(m); SPERRE.push([u, w, 1]); });
   gd.schildP = new THREE.Vector3(M.u, hoehe(M.u, M.w) + 4.2, -M.w); gd.mitte = M; }
 function reh(bock) { const g = new THREE.Group(), fell = mat(0x9a6a3e);
@@ -829,43 +926,159 @@ for (const dk of W_DEKO) {
     for (let i = 0; i < (dk.n || 11); i++) { const g = new THREE.Group(); for (const sg of [-1, 1]) { const f = new THREE.Mesh(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(.1, 0, 0), new THREE.Vector3(-.12, 0, sg * .55), new THREE.Vector3(.1, 0, sg * .32)]), fl); f.userData.s = sg; g.add(f); }
       g.scale.setScalar(.95); scene.add(g); LEBEN.voegel.push({ g, dx: (i % 4) * 1.6 - 2.4 + h2(i, 4), dw: Math.floor(i / 4) * 1.8 + h2(i, 5), ph: h2(i, 6) * 6 }); } } }
 { // ---- Wald + Lichtungsrand: wie im Reel, auf Dorfgroesse skaliert
-  const N = Math.round(1700 * NS * NS * .8);
+  const N = Math.min(6000, Math.round(1700 * NS * NS * .8));   // 18.10.: gedeckelt (Handy)
   for (let i = 0; i < N; i++) { const u = rr(-34, 34) * NS, w = rr(-45, 62) * NS;
     const ell = Math.hypot(u / (23 * NS), (w - 2) / (46 * NS)), dicht = fbm(u * .07 + 5, w * .07 - 2);
     const rand = (u * .85 + w * .3) < -8 * NS + 9 * (dicht - .5) || w > 21 * NS + 10 * (dicht - .5) + .1 * u;
     const p = rand ? .55 : .02 + .35 * sst(.8, 1.15, ell);
-    if (R() > p || !frei(u, w, .8) || Math.hypot(u, w) < 5.5 || ell > 1.35) continue;
+    if (R() > p || !frei(u, w, .8) || Math.hypot(u, w) < 5.5 || ell > 1.35 || VFREI(u, w)) continue;
     setze(baum(dicht > .6 && R() < .6 ? "tanne" : "laub", rr(.8, 1.3)), u, w, R() * 6); SPERRE.push([u, w, 1.2]); }
 }
 
 { // Randschutz (17.10. nachm.): dichter Wald bis in den vollen Nebel, damit nirgends ein Kartenende sichtbar ist
-  const N2 = Math.round(1300 * NS * NS);
+  const N2 = Math.min(4200, Math.round(1300 * NS * NS));
   for (let i = 0; i < N2; i++) { const a = R() * Math.PI * 2, q = 1.15 + R() * .7, u = Math.cos(a) * q * 23 * NS, w = 2 + Math.sin(a) * q * 46 * NS;
-    if (R() > .7 || !frei(u, w, .6)) continue; setze(baum(R() < .45 ? "tanne" : "laub", rr(.9, 1.35)), u, w, R() * 6); SPERRE.push([u, w, 1.1]); } }
-{ const HALLE = LAGE.find(l => l.typ === "langhaus"), ZIELE = LAGE.filter(l => l !== HALLE && l.typ !== "langhaus").slice(0, 3);   // Dorfbewohner laufen zwischen Huetten und Halle
-  if (HALLE) ZIELE.forEach((l, k) => { const a = { u: HALLE.u + (k - 1) * 3, w: HALLE.w - 4.5 }, b = { u: l.u, w: l.w - 3 }, m = mensch({ pose: "geh", tuch: [0x4f5f78, 0x9a7a3a, 0x8a3b2a][k], haube: k === 1 });
-    scene.add(m); LEBEN.laeufer.push({ m, a, b, ph: k * 2.1, v: .9 }); LEBEN.wurzeln.push(m); }); }
-gras(Math.round(2600 * NS), [-30 * NS, 30 * NS], [-28 * NS, 40 * NS]); wolken(6);
+    if (R() > .7 || !frei(u, w, .6) || VFREI(u, w)) continue; setze(baum(R() < .45 ? "tanne" : "laub", rr(.9, 1.35)), u, w, R() * 6); SPERRE.push([u, w, 1.1]); } }
+gras(Math.round(2600 * NS * (SAISON.schnee ? .35 : 1)), [-30 * NS, 30 * NS], [-28 * NS, 40 * NS]); wolken(6);
+if (SAISON.laub) { const n = 64, im = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.42, 0), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 1 }), n);   // Laubhaufen (Herbst), 1 Draw-Call
+  const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), cl = new THREE.Color(); let k = 0;
+  for (let i = 0; i < n * 8 && k < n; i++) { const u = rr(-26, 26) * NS, w = rr(-14, 36) * NS; if (!frei(u, w, .2)) continue;
+    m4.compose(new THREE.Vector3(u, hoehe(u, w) + .02, -w), q.setFromEuler(new THREE.Euler(0, R() * 6, 0)), new THREE.Vector3(rr(.7, 1.4), rr(.18, .3), rr(.7, 1.4)));
+    im.setMatrixAt(k, m4); im.setColorAt(k, cl.setHex(pick([PAL.laub2, PAL.laub3, 0x8a5a2a]))); k++; }
+  im.count = k; im.receiveShadow = true; scene.add(im); }
+const ALLTAG = alltagBauen();
+scene.updateMatrixWorld(true);   // 18.10.: Rauch nur Feuer + 10 Kamine nahe der Dorfmitte (jeder Rauch = 10 Sprites = 10 Draw-Calls)
+EMITTER = [...EMITTER.filter(e => e.feuer), ...EMITTER.filter(e => !e.feuer).map(e => ({ e, d: e.g.localToWorld(e.p.clone()).distanceTo(new THREE.Vector3(0, 0, -DORF_MITTE_W)) }))
+  .sort((a, b) => a.d - b.d).slice(0, 10).map(x => x.e)];
 fertig(c);
 
+// ---- Bewohner-Alltag (17.10.): echte Bewohner nach deutscher Uhrzeit — morgens raus, tagsueber am Beruf, abends am Feuer, nachts drinnen.
+// Alle Besucher sehen dasselbe (Uhrzeit + Handle). Hoechstens 12 gleichzeitig; alle Figuren zusammen 7 Draw-Calls (InstancedMesh). Nur echte Bewohner (Followerliste).
+function alltagBauen() {
+  const MAX = 12, hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
+  const HALLE = LAGE.find(l => l.typ === "langhaus"), NEU = new Set(DATEN.neu || []);
+  const leute = LAGE.filter(l => l.bewohner.length).flatMap(l => l.bewohner.map(h => ({ h, haus: l, z: hash(h) })));
+  const seite = p => Math.sign(p.w - flussW(p.u)) || 1, FU = 4.5, FURT = s => ({ u: FU, w: flussW(FU) + s * 3.1 });
+  const weg = (a, b) => { const pts = seite(a) === seite(b) ? [a, b] : [a, FURT(seite(a)), FURT(seite(b)), b]; let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i].u - pts[i - 1].u, pts[i].w - pts[i - 1].w); return { pts, L }; };
+  const amWeg = (wg, s) => { for (let i = 1; i < wg.pts.length; i++) { const a = wg.pts[i - 1], b = wg.pts[i], l = Math.hypot(b.u - a.u, b.w - a.w);
+      if (s <= l || i === wg.pts.length - 1) { const f = Math.min(1, s / Math.max(l, 1e-3)); return { u: a.u + (b.u - a.u) * f, w: a.w + (b.w - a.w) * f, r: Math.atan2(b.u - a.u, -(b.w - a.w)) }; } s -= l; } };
+  const SITZ = Array.from({ length: MAX }, (_, i) => { const a = (i < 6 ? 40 + 20 * i : -15 - 17 * (i - 6)) * Math.PI / 180, r = i < 6 ? 2.7 : 3.4; return { u: Math.cos(a) * r, w: Math.sin(a) * r }; });
+  for (const p of leute) { const b = W_BERUFE[p.h]; p.tuer = { u: p.haus.u + ((p.z >> 4) % 3 - 1) * .6, w: p.haus.w - (p.haus.typ === "langhaus" ? 4.6 : 2.9) };
+    const gd = b === "Woodcutter" && W_GEB.find(x => x.typ === "holzfaellerhuette"), dk = b === "Berry gatherer" && W_DEKO.find(x => x.typ === "beerenbusch");
+    p.arbeit = gd ? { u: gd.u + 2.4 + (p.z % 3) * 1.1, w: gd.w - 3.4, pose: "axt", t: "t_arbeit" } : dk ? { u: dk.u + 1.0 + (p.z % 2) * .6, w: dk.w - .9, pose: "pflueck", t: "t_arbeit" }
+      : HALLE ? { u: HALLE.u + ((p.z % 5) - 2) * 1.5, w: HALLE.w - 5.2, pose: "rede", t: "t_halle" } : { ...p.tuer, pose: "steh", t: "t_arbeit" };
+    p.hin = weg(p.tuer, p.arbeit); p.einzug = NEU.has(p.h);
+    p.auf = 6.5 + (p.z % 60) / 60; p.feier = Math.min(ZEIT.unter, 18) - .25 + ((p.z >> 6) % 40) / 60; p.schlaf = 22 + ((p.z >> 9) % 50) / 60;
+    p.tuch = TUCH[p.z % TUCH.length]; p.kopf = [0xd9b964, 0x3a2a1a, 0x7a4a24, 0xb08a50, p.tuch][(p.z >> 3) % 5]; }
+  // Teile (je ein InstancedMesh): Rumpf, Kopf, Kopfbedeckung, Arme, Beine, Werkzeug, Buendel
+  const geo = { rumpf: new THREE.CylinderGeometry(.18, .29, .82, 7), kopf: new THREE.IcosahedronGeometry(.18, 1), hut: new THREE.ConeGeometry(.25, .36, 7),
+    arm: new THREE.BoxGeometry(.11, .5, .12).translate(0, -.24, 0), bein: new THREE.BoxGeometry(.16, .72, .18).translate(0, -.36, 0),
+    axt: new THREE.BoxGeometry(.07, 1.0, .07).translate(0, -.5, 0), buendel: new THREE.BoxGeometry(.5, .42, .3) };
+  const mk = (g, n, farbe) => { const im = new THREE.InstancedMesh(g, new THREE.MeshStandardMaterial({ flatShading: true, roughness: .95, color: farbe ?? 0xffffff }), n);
+    im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(im); return im; };
+  const IM = { rumpf: mk(geo.rumpf, MAX), kopf: mk(geo.kopf, MAX, PAL.haut), hut: mk(geo.hut, MAX), arm: mk(geo.arm, MAX * 2), bein: mk(geo.bein, MAX * 2, 0x4a3a2a),
+    axt: mk(geo.axt, MAX, 0x7b5534), buendel: mk(geo.buendel, MAX, 0xb59a6a) };
+  const NULL = new THREE.Matrix4().makeScale(0, 0, 0), slots = [];
+  for (let i = 0; i < MAX; i++) { const root = new THREE.Object3D(), ober = new THREE.Object3D(), rumpf = new THREE.Object3D(), kopf = new THREE.Object3D(), hut = new THREE.Object3D(), buendel = new THREE.Object3D();
+    root.scale.setScalar(1.45); ober.position.y = .72; rumpf.position.y = .28; kopf.position.y = .9; hut.position.set(0, 1.08, -.02); buendel.position.set(0, .4, -.3);
+    root.add(ober); ober.add(rumpf, kopf, hut, buendel);
+    const arme = [-1, 1].map(sx => { const a = new THREE.Object3D(); a.position.set(sx * .25, .62, 0); ober.add(a); return a; });
+    const beine = [-1, 1].map(sx => { const b = new THREE.Object3D(); b.position.set(sx * .1, .72, 0); root.add(b); return b; });
+    const axt = new THREE.Object3D(); axt.position.set(0, -.45, .05); axt.rotation.x = Math.PI; arme[1].add(axt);
+    slots.push({ root, ober, rumpf, kopf, hut, buendel, arme, beine, axt, p: null }); }
+  for (const im of [IM.rumpf, IM.hut, IM.arm]) im.setColorAt(0, new THREE.Color());   // Farbpuffer anlegen
+  let wahl = [], wahlStunde = -1, sichtbar = 0;
+  const zustand = (p, s) => {   // -> { u, w, r, pose, t } oder null (drinnen)
+    const H = s / 3600, v = 1.15, P = 240, ph = (p.z % 997) / 997 * P;
+    if (H < p.auf || H >= p.schlaf + .25) return null;
+    if (H >= p.schlaf) { const f = weg(SITZ[p.sitz], p.tuer), x = amWeg(f, (H - p.schlaf) * 3600 * v); return (H - p.schlaf) * 3600 * v > f.L ? null : { ...x, pose: "geh", t: "t_heim" }; }
+    if (H >= p.feier) { const f = weg(p.arbeit, SITZ[p.sitz]), el = (H - p.feier) * 3600 * v; if (el < f.L) return { ...amWeg(f, el), pose: "geh", t: "t_feuer" };
+      return { ...SITZ[p.sitz], r: Math.atan2(-SITZ[p.sitz].u, SITZ[p.sitz].w), pose: "sitz", t: "t_feuer" }; }
+    const k = ((s + ph) % P) / P;
+    if (p.einzug) { const f = weg({ u: 1.2, w: -2.6 }, p.tuer);   // erster Tag: traegt Sachen vom Feuer zur eigenen Huette
+      if (k < .5) return { ...amWeg(f, k / .5 * f.L), pose: "geh", t: "t_einzug", buendel: true };
+      if (k < .6) return { ...p.tuer, r: 0, pose: "steh", t: "t_einzug" };
+      return { ...amWeg({ pts: [...f.pts].reverse(), L: f.L }, (k - .6) / .4 * f.L), pose: "geh", t: "t_einzug" }; }
+    if (k < .62) return { ...p.arbeit, r: Math.atan2(.3, -1) + (p.z % 7) * .3, pose: p.arbeit.pose, t: p.arbeit.t };
+    const zur = k < .81, el = (zur ? k - .62 : k - .81) / .19 * P * v, f = zur ? { pts: [...p.hin.pts].reverse(), L: p.hin.L } : p.hin;
+    if (el >= f.L) return { ...(zur ? p.tuer : p.arbeit), r: 0, pose: "steh", t: zur ? "t_heim" : "t_weg" };
+    return { ...amWeg(f, el), pose: "geh", t: zur ? "t_heim" : "t_weg" }; };
+  const cl = new THREE.Color();
+  function tick(s, t) {
+    const stunde = Math.floor(s / 3600);
+    if (stunde !== wahlStunde) { wahlStunde = stunde;   // mehr als 12 Bewohner: stuendlich wechselnd, damit jeder mal draussen ist
+      wahl = leute.length <= MAX ? leute.slice() : leute.slice().sort((a, b) => hash(a.h + stunde) - hash(b.h + stunde)).slice(0, MAX);
+      wahl.forEach((p, i) => { p.sitz = i; slots[i].p = p; IM.rumpf.setColorAt(i, cl.setHex(p.tuch)); IM.arm.setColorAt(2 * i, cl); IM.arm.setColorAt(2 * i + 1, cl); IM.hut.setColorAt(i, cl.setHex(p.kopf)); });
+      for (let i = wahl.length; i < MAX; i++) slots[i].p = null;
+      for (const im of [IM.rumpf, IM.arm, IM.hut]) im.instanceColor.needsUpdate = true; }
+    sichtbar = 0;
+    slots.forEach((sl, i) => { const z = sl.p && zustand(sl.p, s); sl.z = z;
+      if (!z) { for (const k of ["rumpf", "kopf", "hut", "axt", "buendel"]) IM[k].setMatrixAt(i, NULL); for (const k of ["arm", "bein"]) { IM[k].setMatrixAt(2 * i, NULL); IM[k].setMatrixAt(2 * i + 1, NULL); } return; }
+      sichtbar++; const ph = (sl.p.z % 100) / 16, sitz = z.pose === "sitz";
+      let y = hoehe(z.u, z.w); if (Math.abs(z.w - flussW(z.u)) < 3.2) y = Math.max(y, WASSER_Y - .3);   // Furt: knietief im Bach
+      sl.root.position.set(z.u, y - (sitz ? .28 : 0), -z.w); sl.root.rotation.y = z.r || 0;
+      sl.ober.rotation.set(0, 0, 0); sl.arme.forEach(a => a.rotation.set(0, 0, 0)); sl.beine.forEach(b => b.rotation.set(0, 0, 0));
+      if (z.pose === "geh") { const q = Math.sin(t * 6 + ph); sl.beine[0].rotation.x = .45 * q; sl.beine[1].rotation.x = -.45 * q; sl.arme[0].rotation.x = -.35 * q; sl.arme[1].rotation.x = z.buendel ? -.4 : .35 * q;
+        sl.root.position.y += .03 * Math.abs(q); }
+      else if (sitz) { sl.beine.forEach(b => b.rotation.x = -1.45); sl.ober.rotation.x = .18 + .04 * Math.sin(t * 1.4 + ph); sl.arme.forEach(a => a.rotation.x = -1.05 + .08 * Math.sin(t * 1.1 + ph)); }
+      else if (z.pose === "axt") { const p = ((t + ph) / 1.3) % 1, a = p < .65 ? -1.1 - 1.7 * weich(p / .65) : -2.8 + 1.7 * ((p - .65) / .35) ** 2; sl.arme.forEach(x => x.rotation.x = a); sl.ober.rotation.x = .12; }
+      else if (z.pose === "pflueck") { const q = Math.sin(t * 2.2 + ph); sl.ober.rotation.x = .5 + .08 * q; sl.arme.forEach((a, k) => a.rotation.x = -1.0 - .3 * (k ? q : -q)); }
+      else if (z.pose === "rede") { sl.arme[1].rotation.x = -.9 + .35 * Math.sin(t * 2.3 + ph); sl.arme[1].rotation.z = .4; sl.ober.rotation.y = .12 * Math.sin(t * .8 + ph); }
+      sl.root.updateMatrixWorld(true);
+      IM.rumpf.setMatrixAt(i, sl.rumpf.matrixWorld); IM.kopf.setMatrixAt(i, sl.kopf.matrixWorld); IM.hut.setMatrixAt(i, sl.hut.matrixWorld);
+      IM.axt.setMatrixAt(i, z.pose === "axt" ? sl.axt.matrixWorld : NULL); IM.buendel.setMatrixAt(i, z.buendel ? sl.buendel.matrixWorld : NULL);
+      for (let k = 0; k < 2; k++) { IM.arm.setMatrixAt(2 * i + k, sl.arme[k].matrixWorld); IM.bein.setMatrixAt(2 * i + k, sl.beine[k].matrixWorld); } });
+    for (const im of Object.values(IM)) im.instanceMatrix.needsUpdate = true; }
+  // Antippen -> Name + was die Person gerade tut
+  const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
+  function tippen(x, y) { ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, cam);
+    let best = null; slots.forEach((sl, i) => { if (!sl.z) return; const p = new THREE.Vector3().setFromMatrixPosition(sl.kopf.matrixWorld), d = ray.ray.distanceToPoint(p);
+      if (d < Math.max(.9, K.b / 60) && (!best || d < best.d)) best = { d, sl }; });
+    if (!best) return false; const sl = best.sl;
+    FIGURSCHILD.d.innerHTML = `<span class="hd">@${esc(sl.p.h)}</span><span class="klein">${esc(TX[sl.z.t] || "")}</span>`; FIGURSCHILD.l.bis = performance.now() + 4000; FIGURSCHILD.l.slot = sl; return true; }
+  return { tick, tippen, sichtbar: () => sichtbar, leute: () => leute.map(p => p.h), slots };
+}
+// ---- Niederschlag (Regen/Schnee): ein Points-Objekt, hoechstens 400 Punkte; bei schwacher Bildrate aus
+function niederschlag() {
+  if (WETTER !== "regen" && WETTER !== "schnee") return null;
+  const n = 400, schnee = WETTER === "schnee", pos = new Float32Array(n * 3), zuf = Array.from({ length: n }, () => [R(), R(), R()]);
+  const tc = document.createElement("canvas"); tc.width = tc.height = 32; const g = tc.getContext("2d");
+  if (schnee) { const gr = g.createRadialGradient(16, 16, 0, 16, 16, 15); gr.addColorStop(0, "rgba(255,255,255,1)"); gr.addColorStop(1, "rgba(255,255,255,0)"); g.fillStyle = gr; g.fillRect(0, 0, 32, 32); }
+  else { g.strokeStyle = "rgba(220,230,240,.9)"; g.lineWidth = 2; g.beginPath(); g.moveTo(17, 2); g.lineTo(15, 30); g.stroke(); }
+  const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(pos, 3));
+  const pts = new THREE.Points(geo, new THREE.PointsMaterial({ size: schnee ? 5 : 11, sizeAttenuation: false, map: new THREE.CanvasTexture(tc), transparent: true, depthWrite: false, fog: false, opacity: schnee ? .95 : .55 }));
+  pts.frustumCulled = false; pts.renderOrder = 20; scene.add(pts);
+  const o = { pts, aus: false, tick(t) { if (o.aus) return; const B = K.b * 1.15, T = K.b * (innerHeight / innerWidth) * 2.3, H = 24, v = schnee ? 1.4 : 16;
+    for (let i = 0; i < n; i++) { const [a, b, c2] = zuf[i]; const y = H - ((t * v * (.8 + .4 * a) + c2 * H) % H);
+      pos[3 * i] = K.u + (a - .5) * B + (schnee ? .5 * Math.sin(t * .7 + i) : 0); pos[3 * i + 1] = y; pos[3 * i + 2] = -(K.w + (b - .5) * T + y * .45); }
+    geo.attributes.position.needsUpdate = true; } };
+  return o; }
+// Antippen (kurz, ohne Ziehen) -> Bewohner-Figur zeigen
+{ let ab = null; renderer.domElement.addEventListener("pointerdown", e => { ab = [e.clientX, e.clientY, performance.now()]; });
+  renderer.domElement.addEventListener("pointerup", e => { if (ab && Math.hypot(e.clientX - ab[0], e.clientY - ab[1]) < 8 && performance.now() - ab[2] < 450) ALLTAG.tippen(e.clientX, e.clientY); ab = null; }); }
 // ---- Statisches zusammenfassen (wenige Draw-Calls fuers Handy): alle Meshes in Gruppen ausser Feuer/Figur/Wolken
 { const bewegt = new Set(); for (const f of c.FEUER) bewegt.add(f.pl.parent); for (const m of c.MENSCHEN) bewegt.add(m); for (const w of c.WOLKEN) bewegt.add(w.g); for (const g of LEBEN.wurzeln) bewegt.add(g); for (const v of LEBEN.voegel) bewegt.add(v.g);
   const topf = new Map(), weg = new Set(); c.scene.updateMatrixWorld(true);
+  const unsichtbar = new Set();
   c.scene.traverse(o => { if (!o.isMesh || o.isInstancedMesh || o.parent === c.scene) return;
-    let p = o; while (p.parent && p.parent !== c.scene) { if (bewegt.has(p)) return; p = p.parent; } if (bewegt.has(p)) return;
+    let p = o, sicht = o.visible; while (p.parent && p.parent !== c.scene) { if (bewegt.has(p)) return; p = p.parent; sicht = sicht && p.visible; } if (bewegt.has(p)) return;
+    if (!sicht || !p.visible) { unsichtbar.add(p); return; }
     let g = o.geometry.index ? o.geometry.toNonIndexed() : o.geometry.clone(); g.applyMatrix4(o.matrixWorld);
     if (!g.attributes.uv) g.setAttribute("uv", new THREE.BufferAttribute(new Float32Array(g.attributes.position.count * 2), 2));
     if (!g.attributes.normal) g.computeVertexNormals();
-    const k = o.material.uuid; if (!topf.has(k)) topf.set(k, { m: o.material, g: [] }); topf.get(k).g.push(g); weg.add(p); });
-  for (const p of weg) c.scene.remove(p);
-  for (const { m, g } of topf.values()) { const n = g.reduce((s, x) => s + x.attributes.position.count, 0), geo = new THREE.BufferGeometry();
+    // 18.10.: nach Zonen zusammenfassen — Dorf in 30-m-Kacheln (Sichtbarkeits-/Feuerschatten-Test greift), Fernwald ohne Schatten
+    g.computeBoundingSphere(); const ce = g.boundingSphere.center, fern = Math.hypot(ce.x, -ce.z - DORF_MITTE_W * .6) > ZONE_R;
+    const k = o.material.uuid + (fern ? "|F" : `|${Math.floor(ce.x / KACHEL)},${Math.floor(ce.z / KACHEL)}`);
+    if (!topf.has(k)) topf.set(k, { m: o.material, g: [], fern }); topf.get(k).g.push(g); weg.add(p); });
+  for (const p of weg) c.scene.remove(p); for (const p of unsichtbar) c.scene.remove(p);
+  for (const { m, g, fern } of topf.values()) { const n = g.reduce((s, x) => s + x.attributes.position.count, 0), geo = new THREE.BufferGeometry();
     for (const a of ["position", "normal", "uv"]) { const it = a === "uv" ? 2 : 3, arr = new Float32Array(n * it); let o = 0; for (const x of g) { arr.set(x.attributes[a].array, o); o += x.attributes[a].array.length; } geo.setAttribute(a, new THREE.BufferAttribute(arr, it)); }
-    const ms = new THREE.Mesh(geo, m); ms.castShadow = ms.receiveShadow = true; c.scene.add(ms); }
-  window.__drawcalls = topf.size; }
+    const ms = new THREE.Mesh(geo, m); ms.castShadow = !fern; ms.receiveShadow = true; c.scene.add(ms); }
+  window.__drawcalls = topf.size; window.__renderinfo = () => ({ calls: renderer.info.render.calls, tris: renderer.info.render.triangles, geo: renderer.info.memory.geometries }); }
 
 // ---- Kamera: Ziehen = verschieben, Zwei Finger / Mausrad = zoomen
 // Startansicht (v3): Rahmen um Feuer, Haeuser, Plaetze, Gebaeude; oben 20 % fuer die Kopfleiste, unten 16 % fuer das Suchfeld frei
-const RAHMEN = [[0, 0], ...LAGE.map(l => [l.u, l.w]), ...W_BP.map(b => [b.u, b.w]), ...W_GEB.map(g => [g.u, g.w])];
+const RAHMEN = [[0, 0], ...LAGE.map(l => [l.u, l.w]), ...W_BP.map(b => [b.u, b.w]), ...W_GEB.map(g => [g.u, g.w]), ...VOFFEN.map(v => [v.mitte.u, v.mitte.w])];
 const RU = [Math.min(...RAHMEN.map(p => p[0])) - 7, Math.max(...RAHMEN.map(p => p[0])) + 7], RW = [Math.min(...RAHMEN.map(p => p[1])) - 5, Math.max(...RAHMEN.map(p => p[1])) + 9];
 const SINE = Math.sin(33 * Math.PI / 180), ASPS = innerHeight / innerWidth, NUTZ = 1 - .20 - .16;
 const startB = Math.min(140, Math.max(26, RU[1] - RU[0], (RW[1] - RW[0]) * SINE / (ASPS * NUTZ)));
@@ -889,43 +1102,75 @@ function klemmen() { const g = Math.max(maxR + 6, (RU[1] - RU[0]) / 2 + 8, (RW[1
 
 // ---- Namensschilder (nur Handle), Suche
 const SCH = [], neuSchild = (l, html, art) => { const d = document.createElement("div"); d.className = "schild" + (art ? " " + art : ""); d.innerHTML = html; HUD.schilder.appendChild(d); SCH.push({ l, d }); };
-const beruf = h => W_BERUFE[h] ? ` · ${W_BERUFE[h]}` : "";
+const beruf = h => W_BERUFE[h] ? `<span class="klein">${esc(W_BERUFE[h])}</span>` : "";   // Beruf in eigener Zeile (Schild bleibt schmal)
+const PRIO = { an: 100, haus: 60, platz: 45, bau: 35, arbeit: 20 };
 for (const l of LAGE) {
   if (l.typ === "langhaus" && l.bewohner.length > 1) { const n = { 0: 3, 1: 2, 2: 4 }[l.var ?? 0], L = 2.9 * n + 1;   // je Bewohner eine Tuer + eigenes Schild
     l.bewohner.forEach((h, i) => { const p = l.g.localToWorld(new THREE.Vector3(-L / 2 + .5 + 2.9 * (i + .5), 2.4 + i * 1.35, l.lok.max.z + .2));
-      neuSchild({ u: l.u, w: l.w, dach: p, groesse: l.groesse, bewohner: [h], alle: l.bewohner }, `<span>@${h}${beruf(h)}</span>`); }); }
-  else if (!l.bewohner.length) neuSchild({ ...l, bewohner: [] }, `<span>Village Hall</span>`, "arbeit");
-  else neuSchild(l, l.bewohner.map(h => `<span>@${h}${beruf(h)}</span>`).join(""));
+      neuSchild({ u: l.u, w: l.w, dach: p, groesse: l.groesse, bewohner: [h], alle: l.bewohner, prio: PRIO.haus }, `<span class="hd">@${esc(h)}</span>${beruf(h)}`); }); }
+  else if (!l.bewohner.length) neuSchild({ ...l, bewohner: [], prio: PRIO.bau }, `<span>${esc(l.nutzung || TX.leeres_haus)}</span>`, "arbeit");
+  else neuSchild({ ...l, prio: PRIO.haus }, l.bewohner.map(h => `<span class="hd">@${esc(h)}</span>${beruf(h)}`).join(""));
 }
 for (const bp of W_BP) { const y = hoehe(bp.u, bp.w) + 1.6;
-  if (bp.fuer_handle) neuSchild({ u: bp.u, w: bp.w, dach: new THREE.Vector3(bp.u, y, -bp.w), groesse: 6, bewohner: [], platz: bp.fuer_handle }, `<span>@${bp.fuer_handle} · cabin coming</span>`, "platz");
+  if (bp.fuer_handle) neuSchild({ u: bp.u, w: bp.w, dach: new THREE.Vector3(bp.u, y, -bp.w), groesse: 6, bewohner: [], platz: bp.fuer_handle, prio: PRIO.platz }, `<span class="hd">@${esc(bp.fuer_handle)}</span><span class="klein">cabin coming</span>`, "platz");
  }
 for (const gd of W_GEB) if (gd.typ === "holzfaellerhuette") { const hs = Object.keys(W_BERUFE).filter(h => W_BERUFE[h] === "Woodcutter");
-  if (hs.length) neuSchild({ u: gd.u, w: gd.w, dach: new THREE.Vector3(gd.u, hoehe(gd.u, gd.w) + 6.2, -gd.w), groesse: 9, bewohner: [] }, `<span class="klein">Woodcutters</span>` + hs.map(h => `<span>@${h}</span>`).join(""), "arbeit"); }
+  if (hs.length) neuSchild({ u: gd.u, w: gd.w, dach: new THREE.Vector3(gd.u, hoehe(gd.u, gd.w) + 6.2, -gd.w), groesse: 9, bewohner: [], prio: PRIO.arbeit }, `<span class="klein">${esc(gd.schild || "Woodcutters")}</span>` + hs.map(h => `<span class="hd">@${esc(h)}</span>`).join(""), "arbeit"); }
 if ((DATEN.unterstand || []).length) { const y = hoehe(-3.6, .9) + 2.6;   // Bewohner ohne eigenes Haus: Unterstand am Feuer
-  for (const [i, h] of DATEN.unterstand.entries()) neuSchild({ u: -3.6, w: .9, dach: new THREE.Vector3(-3.6, y + i * .9, -.9), groesse: 8, bewohner: [h] }, `<span>@${h} · shelter by the fire</span>`); }
-for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.schildP) neuSchild({ u: gd.mitte.u, w: gd.mitte.w, dach: gd.schildP, groesse: 14, bewohner: [] }, `<span>Palisade · started</span><span class="klein">wish by @${gd.von}</span>`, "arbeit");
+  for (const [i, h] of DATEN.unterstand.entries()) neuSchild({ u: -3.6, w: .9, dach: new THREE.Vector3(-3.6, y + i * .9, -.9), groesse: 8, bewohner: [h], prio: PRIO.haus }, `<span class="hd">@${esc(h)}</span><span class="klein">shelter by the fire</span>`); }
+const bauTitel = gd => { const name = gd.name || null, p = gd.prozent ?? Math.round((gd.fortschritt ?? 1) * 100);
+  if (!name) return gd.schild || gd.wunsch; return p >= 100 ? `${name} · ${TX.gebaut}` : `${name} · ${fuell(TX.fertig_zu, { p })}`; };
+for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.schildP) neuSchild({ u: gd.mitte.u, w: gd.mitte.w, dach: gd.schildP, groesse: 14, bewohner: [], prio: PRIO.bau }, `<span>${esc(bauTitel(gd))}</span><span class="klein">${esc(TX.wunsch_von)} @${esc(gd.von)}</span>`, "arbeit");
+for (const gd of W_GEB) if (gd.typ !== "palisade_baustelle" && gd.typ !== "holzfaellerhuette" && gd.schildP && gd.von)
+  neuSchild({ u: gd.u, w: gd.w, dach: gd.schildP, groesse: 8, bewohner: [], prio: PRIO.bau }, `<span>${esc(bauTitel(gd))}</span><span class="klein">${esc(TX.wunsch_von)} @${esc(gd.von)}</span>`, "arbeit");
+for (const bp of W_BP) if (bp.wunsch) neuSchild({ u: bp.u, w: bp.w, dach: new THREE.Vector3(bp.u, hoehe(bp.u, bp.w) + 2.2, -bp.w), groesse: 7, bewohner: [], prio: PRIO.platz },
+  `<span>${esc(bp.wunsch)} · ${esc(TX.geplant)}</span>` + (bp.von ? `<span class="klein">${esc(TX.wunsch_von)} @${esc(bp.von)}</span>` : ""), "platz");
+if (RENNEN) { const H = LAGE.find(l => l.typ === "langhaus"), u = H ? H.u + 7 : 4, w = H ? H.w - 6 : 4;   // Wunsch-Tafel am Dorfplatz (HTML, kein 3D)
+  neuSchild({ u, w, dach: new THREE.Vector3(u, hoehe(u, w) + 1.2, -w), groesse: 6, bewohner: [], prio: PRIO.bau - 1 },
+    `<span class="klein">${esc(TX.rennen_titel)}</span>` + RENNEN.top.slice(0, 3).map((x, i) => `<span>${i + 1}. ${esc(x.text)} · ${+x.likes || 0}♥</span>`).join(""), "tafel"); }
+for (const v of W_VIERTEL) if (v.schildP) neuSchild({ u: v.mitte.u, w: v.mitte.w, dach: v.schildP, groesse: 10, bewohner: [], prio: PRIO.platz }, `<span>${esc(TX.rodung)}</span><span class="klein">${esc(TX.rodung_klein)}</span>`, "platz");
+const FIGURSCHILD = (() => { const d = document.createElement("div"); d.className = "schild an figur"; HUD.schilder.appendChild(d); const s = { l: { u: 0, w: 0, dach: new THREE.Vector3(), bewohner: [], prio: 90, bis: 0 }, d }; SCH.push(s); return s; })();
 for (const dk of W_DEKO) if (dk.typ === "beerenbusch") { const hs = Object.keys(W_BERUFE).filter(h => W_BERUFE[h] === "Berry gatherer");
-  if (hs.length) neuSchild({ u: dk.u, w: dk.w, dach: new THREE.Vector3(dk.u, hoehe(dk.u, dk.w) + 2.4, -dk.w), groesse: 5, bewohner: [] }, `<span class="klein">Berry gatherer</span>` + hs.map(h => `<span>@${h}</span>`).join(""), "arbeit"); }
+  if (hs.length) neuSchild({ u: dk.u, w: dk.w, dach: new THREE.Vector3(dk.u, hoehe(dk.u, dk.w) + 2.4, -dk.w), groesse: 5, bewohner: [], prio: PRIO.arbeit }, `<span class="klein">${esc(dk.schild || "Berry gatherers")}</span>` + hs.map(h => `<span class="hd">@${esc(h)}</span>`).join(""), "arbeit"); }
 window.__zeige = (u, w, b) => { K.ziel = { u, w, b, t0: performance.now(), von: { ...K } }; };
 let markiert = null;
 function finde(text) {
   const h = text.trim().replace(/^@/, "").toLowerCase(); if (!h) return;
   const s = SCH.find(x => x.l.bewohner.includes(h));   // (Bauplatz-/Arbeitsschilder haben keine Bewohner)
-  if (!s) { HUD.meldung.textContent = `@${h} isn't here yet — new followers move in at the next count (3× a day).`; HUD.meldung.className = "zeigen"; return; }
-  markiert = s; const alle = s.l.alle || s.l.bewohner; HUD.meldung.textContent = alle.length > 1 ? `Shared longhouse · ${alle.map(x => "@" + x).join(", ")}` : `Here lives @${h}`; HUD.meldung.className = "zeigen";
+  if (!s) { HUD.meldung.textContent = fuell(DATEN.abgleich_pro_tag ? TX.nicht_da_n : TX.nicht_da, { h, n: DATEN.abgleich_pro_tag }); HUD.meldung.className = "zeigen"; return; }
+  markiert = s; const alle = s.l.alle || s.l.bewohner;
+  HUD.meldung.textContent = alle.length > 1 ? fuell(TX.geteilt, { alle: alle.map(x => "@" + x).join(", ") }) : fuell(TX.hier, { h }) + (W_BERUFE[h] ? ` · ${W_BERUFE[h]}` : ""); HUD.meldung.className = "zeigen";
   K.ziel = { u: s.l.u, w: s.l.w + .5, b: Math.min(30, Math.max(22, s.l.groesse * 2.6)), t0: performance.now(), von: { ...K } };
   document.activeElement?.blur?.();
 }
 document.getElementById("form").addEventListener("submit", e => { e.preventDefault(); finde(HUD.suche.value); });
 window.__finde = finde;
 const v = new THREE.Vector3();
+// Schilder ohne Überlappung (17.10.): nach Priorität platzieren (markiert > Häuser > Bauplätze > Bauten > Arbeit, dann Nähe zur Bildmitte),
+// je Schild einige Ausweichplätze rund um den Ankerpunkt, ans Bild geklemmt, Kopf-/Suchkarte bleiben frei; kein Platz -> ausblenden.
+const RAND = 6, LUFT = 3, KARTEN = [document.getElementById("kopf"), document.getElementById("unten")];
+const AUSWEICH = [[0, 0], [0, -1], [-.55, 0], [.55, 0], [-.55, -1], [.55, -1], [0, 1], [0, -2], [-1.1, 0], [1.1, 0], [-.55, 1], [.55, 1]];
+const schneidet = (a, b) => a.x < b.x + b.w + LUFT && b.x < a.x + a.w + LUFT && a.y < b.y + b.h + LUFT && b.y < a.y + a.h + LUFT;
+window.__schilder = () => SCH.filter(s => s.d.style.display === "block").map(s => { const r = s.d.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, t: s.d.textContent, an: s === markiert }; });
 function schilder() {
-  const nah = K.b < 42;
-  for (const s of SCH) { const an = s === markiert; v.copy(s.l.dach).project(cam);
-    const sichtbar = (nah || an) && v.x > -1.1 && v.x < 1.1 && v.y > -1.1 && v.y < 1.1;
-    s.d.style.display = sichtbar ? "block" : "none"; if (!sichtbar) continue;
-    s.d.style.transform = `translate(-50%,-100%) translate(${(v.x + 1) / 2 * innerWidth}px,${(1 - v.y) / 2 * innerHeight}px)`; s.d.classList.toggle("an", an); }
+  const nah = K.b < 42, W = innerWidth, H = innerHeight, kand = [];
+  if (FIGURSCHILD.l.slot?.z) FIGURSCHILD.l.dach.setFromMatrixPosition(FIGURSCHILD.l.slot.kopf.matrixWorld).y += 1.2;
+  for (const s of SCH) { const fig = s === FIGURSCHILD, an = s === markiert || fig; v.copy(s.l.dach).project(cam);
+    const im = v.z < 1 && v.x > -1.05 && v.x < 1.05 && v.y > -1.05 && v.y < 1.05;
+    if (fig ? performance.now() < s.l.bis && im : (nah || an) && (im || an)) { s.px = (v.x + 1) / 2 * W; s.py = (1 - v.y) / 2 * H; s.an = an; kand.push(s); if (s.d.style.display !== "block") s.d.style.display = "block"; s.d.classList.toggle("an", an); }
+    else if (s.d.style.display !== "none") { s.d.style.display = "none"; s.letzt = null; } }
+  if (FIGURSCHILD.d.style.display === "block") FIGURSCHILD.an = true;
+  const belegt = KARTEN.map(k => { const r = k.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
+  for (const s of kand) { s.w = s.d.offsetWidth; s.h = s.d.offsetHeight; s.rang = (s.an ? PRIO.an : s.l.prio ?? 30) - Math.hypot(s.px - W / 2, s.py - H / 2) / Math.hypot(W, H); }
+  kand.sort((a, b) => b.rang - a.rang);
+  for (const s of kand) {
+    const versuche = s.letzt != null ? [s.letzt, ...AUSWEICH.keys()] : AUSWEICH.keys(); let gut = null;
+    for (const i of versuche) { const [fx, fy] = AUSWEICH[i];
+      const x = Math.max(RAND, Math.min(W - s.w - RAND, s.px - s.w / 2 + fx * (s.w + LUFT))), y = Math.max(RAND, Math.min(H - s.h - RAND, s.py - s.h - 4 + fy * (s.h + LUFT)));
+      const r = { x, y, w: s.w, h: s.h }; if (!belegt.some(b => schneidet(r, b))) { gut = r; s.letzt = i; break; } }
+    if (!gut && s.an) { const x = Math.max(RAND, Math.min(W - s.w - RAND, s.px - s.w / 2)), y = Math.max(RAND, Math.min(H - s.h - RAND, s.py - s.h - 4)); gut = { x, y, w: s.w, h: s.h }; }
+    if (!gut) { s.d.style.display = "none"; s.letzt = null; continue; }
+    belegt.push(gut); s.d.style.transform = `translate(${gut.x}px,${gut.y}px)`; }
 }
 
 // ---- Schleife (30 fps reichen; pausiert im Hintergrund)
@@ -943,11 +1188,22 @@ function leben(t) {   // Tiere + laufende Bewohner (wie im Reel), leichtgewichti
     const m = L.m.userData.m; m.beine.forEach((b, i) => b.rotation.x = (i ? 1 : -1) * .5 * Math.sin(t * 8 + L.ph)); m.arme[0].rotation.x = .35 * Math.sin(t * 8 + L.ph); m.arme[1].rotation.x = -.35 * Math.sin(t * 8 + L.ph); }
 }
 const FPS = { n: 0 }; window.__fps = () => FPS.n;
+let UHR_T = 0, FEUERSCHATTEN = 0; const LEISTUNG = { voll: P.get("leistung") === "voll", n: 0, t0: 0, schwach: 0, runden: 0, letzt: 0 };
+window.__wachstum = () => ({ uhr: ZEIT.text(), nacht: +Math.min(.92, nachtGrad(ZEIT.sek() / 3600)).toFixed(2), saison: SAISON.name, monat: SAISON.monat, wetter: WETTER,
+  niederschlag: NIED ? (NIED.aus ? "aus" : "an") : "keiner", laeufer_sichtbar: ALLTAG.sichtbar(), fps: +LEISTUNG.letzt.toFixed(1), drawcalls: renderer.info.render.calls });
+const NIED = niederschlag();
+window.__figuren = () => ALLTAG.slots.filter(sl => sl.z).map(sl => { const q = new THREE.Vector3().setFromMatrixPosition(sl.kopf.matrixWorld).project(cam);
+  return { h: sl.p.h, t: sl.z.t, pose: sl.z.pose, x: (q.x + 1) / 2 * innerWidth, y: (1 - q.y) / 2 * innerHeight }; });
 function schleife(ts) {
-  requestAnimationFrame(schleife); if (document.hidden || ts - letzt < 33) return; letzt = ts;
+  requestAnimationFrame(schleife); if (document.hidden) { LEISTUNG.t0 = ts; LEISTUNG.n = 0; return; } if (ts - letzt < 33) return; letzt = ts;
   if (K.ziel) { const z = K.ziel, p = Math.min(1, (ts - z.t0) / 1400), e = ease(p); K.u = z.von.u + (z.u - z.von.u) * e; K.w = z.von.w + (z.w - z.von.w) * e;
     K.b = z.von.b + (z.b - z.von.b) * e + Math.sin(p * Math.PI) * 10; if (p >= 1) K.ziel = null; }
-  const t = ts / 1000; bewegen(c, t, 0, NS, 2); leben(t); ansicht(); renderer.render(c.scene, cam); schilder(); FPS.n++;
+  const t = ts / 1000, std = ZEIT.sek() / 3600, ng = Math.min(.92, nachtGrad(std));
+  bewegen(c, t, ng, NS * (WETTER === "nebel" ? .8 : 1), 2);   // 18.10.: Feuerschatten (Wuerfel = 6 Durchgaenge) tags gar nicht, nachts jedes 4. Bild neu
+  FEUERSCHATTEN = (FEUERSCHATTEN + 1) % 4; for (const f of c.FEUER) { f.pl.shadow.autoUpdate = false; if (ng > .35 && FEUERSCHATTEN === 0 || FPS.n < 2) f.pl.shadow.needsUpdate = true; } leben(t); ALLTAG.tick(ZEIT.sek(), t); ansicht(); NIED?.tick(t); renderer.render(c.scene, cam); schilder(); FPS.n++;
+  if (ts - (UHR_T || 0) > 10000) { UHR_T = ts; uhrText(); }
+  LEISTUNG.n++; if (ts - LEISTUNG.t0 > 3000) { const fps = LEISTUNG.n * 1000 / (ts - LEISTUNG.t0); LEISTUNG.t0 = ts; LEISTUNG.n = 0; LEISTUNG.letzt = fps;   // schwache Bildrate: Niederschlag aus
+    if (!LEISTUNG.voll && LEISTUNG.runden++ > 0 && fps < 20) { if (++LEISTUNG.schwach >= 2 && NIED && !NIED.aus) { NIED.aus = true; NIED.pts.visible = false; } } else LEISTUNG.schwach = 0; }
 }
 addEventListener("resize", () => { renderer.setSize(innerWidth, innerHeight); });
 const q = new URLSearchParams(location.search).get("find"); if (q) { HUD.suche.value = q; setTimeout(() => finde(q), 400); }
