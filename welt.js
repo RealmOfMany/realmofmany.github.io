@@ -520,7 +520,8 @@ function bewegen(c, t, n, nebelS, nebelC) {
 function kamera(c, breite, zielU, zielW, azGrad = 0, elGrad = 31, zielY = 0) {
   const asp = innerHeight / innerWidth, h = breite * asp; Object.assign(cam, { left: -breite / 2, right: breite / 2, top: h / 2, bottom: -h / 2 }); cam.updateProjectionMatrix();
   const el = elGrad * Math.PI / 180, az = azGrad * Math.PI / 180, ziel = new THREE.Vector3(zielU, zielY, -zielW);
-  cam.position.copy(ziel).add(new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(300)); cam.lookAt(ziel);
+  const abst = Math.max(300, breite * 1.6); if (cam.far < abst * 3) { cam.far = abst * 3; cam.updateProjectionMatrix(); }   // 18.10. Fix: weite Ansicht ohne abgeschnittene Landschaft
+  cam.position.copy(ziel).add(new THREE.Vector3(Math.sin(az) * Math.cos(el), Math.sin(el), Math.cos(az) * Math.cos(el)).multiplyScalar(abst)); cam.lookAt(ziel);
   c.sonne.target.position.copy(ziel); c.sonne.position.copy(ziel).add(c.sonneDir || new THREE.Vector3(...SONNE_DIR[0])); }
 const feuerVersatz = b => .10 * b * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180);
 
@@ -909,6 +910,17 @@ const c = neueSzene({ c: [0, 2], r: [23 * NS, 46 * NS] }, NS); SPERRE = sperreGi
 c.sonne.shadow.mapSize.set(2048, 2048); Object.assign(c.sonne.shadow.camera, { left: -60 * NS, right: 60 * NS, top: 60 * NS, bottom: -60 * NS });
 const TER = Math.max(260, Math.ceil(2 * (46 * NS * 2.1 + 12)));   // Randschutz: Gelaende reicht bis in den vollen Nebel (Mitte w=2 wie der Nebel)
 gelaende(TER, Math.min(300, Math.round(TER)), 2);
+const FLUSS = { u0: -TER / 2, schritt: 1.5, y: [] };   // 18.10. Fix: Bach als eigenes Band (faellt nie durch ein grobes Gelaende-Raster)
+{ const pos = [], ufer = [], idx = [], n = Math.ceil(TER / FLUSS.schritt), zelle = TER / Math.min(300, Math.round(TER));
+  for (let i = 0; i <= n; i++) { const u = FLUSS.u0 + i * FLUSS.schritt, m = flussW(u);
+    let y = WASSER_Y + .05; for (const d of [-6, -3.5, 3.5, 6]) for (const du of [-zelle, 0, zelle]) y = Math.max(y, hoehe(u + du, m + d) + .04 * (zelle > 3 ? 1 : 0));
+    if (zelle <= 3) y = WASSER_Y + .03; FLUSS.y.push(y);
+    pos.push(u, y, -(m + 2.6), u, y, -(m - 2.6)); ufer.push(u, y - .015, -(m + 3.6), u, y - .015, -(m - 3.6));
+    if (i < n) { const k = i * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); } }
+  const mk = (arr, farbe, glanz) => { const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(arr, 3)); g.setIndex(idx); g.computeVertexNormals();
+    const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ color: farbe, roughness: glanz ? .3 : 1, metalness: glanz ? .1 : 0 })); m.receiveShadow = true; scene.add(m); return m; };
+  if (zelle > 3) mk(ufer, 0x8a7a4e, false); FLUSS.mesh = mk(pos, PAL.wasser, true); }
+const flussY = u => FLUSS.y[Math.max(0, Math.min(FLUSS.y.length - 1, Math.round((u - FLUSS.u0) / FLUSS.schritt)))];
 lagerfeuer(); setze(unterstand(), -3.6, .9, Math.PI / 2 + .25); setze(holzstapel(1), -1.6, -2.3, .9);
 SPERRE.push([-3.6, .9, 2.6], [-1.6, -2.3, 1], [1.9, .5, 1.6]);
 const B = Math.PI / 4;
@@ -1107,21 +1119,27 @@ const WALD = (() => {
         const im = new THREE.InstancedMesh(g, MAT[k], l.length); l.forEach((x, i) => im.setMatrixAt(i, x[0])); im.castShadow = !fern; im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im); n += l.length; }
       return n; } };
 })();
-{ // ---- Wald + Lichtungsrand: wie im Reel, auf Dorfgroesse skaliert
-  const N = Math.min(16000, Math.round(6000 + 2200 * Math.max(0, NS - 3)), Math.round(1700 * NS * NS * .8));   // 18.10.: Obergrenze (Dorf 2 macht die Welt sehr gross)   // 18.10.: Deckel waechst mit der Welt (Wald bleibt sichtbar)
-  for (let i = 0; i < N; i++) { const u = rr(-34, 34) * NS, w = rr(-45, 62) * NS;
-    const ell = Math.hypot(u / (23 * NS), (w - 2) / (46 * NS)), dicht = fbm(u * .07 + 5, w * .07 - 2);
-    const rand = (u * .85 + w * .3) < -8 * NS + 9 * (dicht - .5) || w > 21 * NS + 10 * (dicht - .5) + .1 * u;
-    const p = rand ? .55 : .02 + .35 * sst(.8, 1.15, ell);
-    if (R() > p || !frei(u, w, .8) || Math.hypot(u, w) < 5.5 || ell > 1.35 || VFREI(u, w)) continue;
-    WALD.baum(dicht > .6 && R() < .6 ? "tanne" : "laub", rr(.8, 1.3), u, w, R() * 6, false); SPERRE.push([u, w, 1.2]); }
-}
-
-{ // Randschutz (17.10. nachm.): dichter Wald bis in den vollen Nebel, damit nirgends ein Kartenende sichtbar ist
-  const N2 = Math.min(8000, Math.round(4200 + 1600 * Math.max(0, NS - 3)), Math.round(1300 * NS * NS));
-  for (let i = 0; i < N2; i++) { const a = R() * Math.PI * 2, q = 1.15 + R() * .7, u = Math.cos(a) * q * 23 * NS, w = 2 + Math.sin(a) * q * 46 * NS;
-    if (R() > .7 || !frei(u, w, .6) || VFREI(u, w)) continue; WALD.baum(R() < .45 ? "tanne" : "laub", rr(.9, 1.35), u, w, R() * 6, true); SPERRE.push([u, w, 1.1]); } }
+{ // ---- Wald (18.10. 17 Uhr, Fix): Baeume nach Abstand zu den Siedlungen statt ueber die ganze (riesige) Welt —
+  // Lichtungen in den Vierteln, dichter Wald dazwischen und rundherum, Waldguertel zwischen Dorf 1 und Dorf 2. Gleiche Dichte wie vor Dorf 2.
+  const ORTE = [...W_VIERTEL.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_GEB.filter(g => g.u !== undefined).map(g => [g.u, g.w, 8]), [0, 0, 10], [0, DORF_MITTE_W, 14]];
+  if (DATEN.dorf2 && DATEN.dorf2.status === "angelegt") ORTE.push([DATEN.dorf2.u, DATEN.dorf2.w, 12]);
+  const nahDistGenau = (u, w) => { let m = 1e9; for (const [a, b, rr2] of ORTE) { const d = Math.hypot(u - a, (w - b) * .9) - rr2; if (d < m) m = d; } return m; };
+  const U0 = Math.min(...ORTE.map(o => o[0])) - 90, U1 = Math.max(...ORTE.map(o => o[0])) + 90, W0 = Math.min(...ORTE.map(o => o[1])) - 80, W1 = Math.max(...ORTE.map(o => o[1])) + 90;
+  const ZIEL = 30000, VERSUCHE = 140000; let n = 0;
+  const C = 6, NX = Math.ceil((U1 - U0) / C) + 1, NW = Math.ceil((W1 - W0) / C) + 1, GR = new Float32Array(NX * NW);   // Abstands-Raster (schnell)
+  for (let i = 0; i < NX; i++) for (let j = 0; j < NW; j++) GR[i * NW + j] = nahDistGenau(U0 + i * C, W0 + j * C);
+  const nahDist = (u, w) => GR[Math.round((u - U0) / C) * NW + Math.round((w - W0) / C)];
+  for (let i = 0; i < VERSUCHE && n < ZIEL; i++) { const u = rr(U0, U1), w = rr(W0, W1), d = nahDist(u, w);
+    if (d > 85) continue; const dicht = fbm(u * .07 + 5, w * .07 - 2);
+    const p = d < 4 ? 0 : d < 22 ? .06 + .2 * dicht : .35 + .5 * sst(.3, .7, dicht);   // Lichtung -> Waldrand -> Wald
+    if (R() > p || !frei(u, w, .8) || Math.hypot(u, w) < 5.5 || VFREI(u, w)) continue;
+    WALD.baum(dicht > .6 && R() < .6 ? "tanne" : "laub", rr(.8, 1.3), u, w, R() * 6, d > 55); SPERRE.push([u, w, 1.2]); n++; }
+  window.__waldbaeume = n; }
 window.__baeume = WALD.fertig();
+window.__inventar = () => { let pf = 0; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "CylinderGeometry") pf++; });
+  return { fluss: FLUSS.mesh ? FLUSS.y.length : 0, baeume: window.__waldbaeume || 0, baum_teile: window.__baeume || 0, huetten: LAGE.length,
+    huetten_im_wasser: LAGE.filter(l => Math.abs(l.w - flussW(l.u)) < 2.6).length, gebaeude: W_GEB.length, figuren: (DATEN.figuren || []).length,
+    viertel: W_VIERTEL.length, deko: W_DEKO.length, schilder: SCH.length, bmax: Math.round(B_MAX) }; };
 gras(Math.round(2600 * NS * (SAISON.schnee ? .35 : 1)), [-30 * NS, 30 * NS], [-28 * NS, 40 * NS]); wolken(6);
 if (SAISON.laub) { const n = 64, im = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.42, 0), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 1 }), n);   // Laubhaufen (Herbst), 1 Draw-Call
   const m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), cl = new THREE.Color(); let k = 0;
@@ -1227,7 +1245,7 @@ function alltagBauen() {
     slots.forEach((sl, i) => { const z = sl.p && zustand(sl.p, s); sl.z = z;
       if (!z) { for (const k of ["rumpf", "kopf", "hut", "axt", "buendel", "helm", "speer", "fackel", "flamme"]) IM[k].setMatrixAt(i, NULL); for (const k of ["arm", "bein"]) { IM[k].setMatrixAt(2 * i, NULL); IM[k].setMatrixAt(2 * i + 1, NULL); } return; }
       sichtbar++; const ph = (sl.p.z % 100) / 16, sitz = z.pose === "sitz";
-      let y = hoehe(z.u, z.w); if (Math.abs(z.w - flussW(z.u)) < 3.2) y = Math.max(y, WASSER_Y - .3);   // Furt: knietief im Bach
+      let y = hoehe(z.u, z.w); if (Math.abs(z.w - flussW(z.u)) < 3.2) y = Math.max(y, flussY(z.u) - .3);   // Furt: knietief im Bach
       sl.root.position.set(z.u, y - (sitz ? .28 : 0), -z.w); sl.root.rotation.y = z.r || 0;
       sl.ober.rotation.set(0, 0, 0); sl.arme.forEach(a => a.rotation.set(0, 0, 0)); sl.beine.forEach(b => b.rotation.set(0, 0, 0));
       if (z.pose === "geh") { const q = Math.sin(t * 6 + ph); sl.beine[0].rotation.x = .45 * q; sl.beine[1].rotation.x = -.45 * q; sl.arme[0].rotation.x = -.35 * q; sl.arme[1].rotation.x = z.buendel ? -.4 : (z.speer || z.fackel) ? -.25 : .35 * q;
@@ -1300,7 +1318,8 @@ const SINE = Math.sin(33 * Math.PI / 180), ASPS = innerHeight / innerWidth, NUTZ
 const startB = Math.min(140, Math.max(26, RU[1] - RU[0], (RW[1] - RW[0]) * SINE / (ASPS * NUTZ)));
 const K = { b: startB, u: (RU[0] + RU[1]) / 2, w: (RW[0] + RW[1]) / 2 + .02 * startB * ASPS / SINE - .10 * startB * ASPS / Math.sin(31 * Math.PI / 180) * .5, ziel: null };   // Inhalt-Mitte bei ~52 % Bildhoehe
 const START = { b: K.b, u: K.u, w: K.w };
-const B_MIN = 12, B_MAX = Math.min(Math.max(60, startB * 1.4), TER * .5);   // nie weiter heraus, als Gelaende da ist
+const ALLE_U = [0, ...LAGE.map(l => l.u)], B_WEIT = (Math.max(...ALLE_U) - Math.min(...ALLE_U)) * 1.12 + 60;   // 18.10. Fix: weit genug fuer beide Doerfer
+const B_MIN = 12, B_MAX = Math.min(Math.max(60, startB * 1.4, B_WEIT), TER * .5);   // nie weiter heraus, als Gelaende da ist
 function ansicht() { klemmen(); const z = K.b; kamera(c, z, K.u, K.w + .10 * z * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180) * .5, -4, 33); }
 const zeiger = new Map(); let zieh = null, pinch = null;
 const cv = renderer.domElement; cv.style.touchAction = "none";
