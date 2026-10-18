@@ -931,6 +931,8 @@ for (const gd of W_GEB) { const g = BAUTEN[gd.typ] ? BAUTEN[gd.typ]() : ARBEIT.i
   if (p < 1) { if (g.userData.stufen) bauStufe(g, p); else { g.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(g), hz = bb.min.y + .15 + p * (bb.max.y - bb.min.y);   // Bau waechst von unten
       g.traverse(o => { if (o.isMesh) o.visible = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3()).y < hz; }); } }
   g.updateMatrixWorld(true); if (g.userData.kamin && p >= 1) EMITTER.push({ g, p: g.userData.kamin.clone() }); SPERRE.push([gd.u, gd.w, gd.sperre || 4.8]);
+  if (gd.typ === "schmiede") g.traverse(o => { if (o.isMesh && o.material.isMeshBasicMaterial && o.material.color.getHex() === 0xff7a2a) {   // 18.10.: Glut der Esse leuchtet
+    const q = o.getWorldPosition(new THREE.Vector3()); GLANZ.push({ sp: glanz(q.clone().add(new THREE.Vector3(0, .25, 0)), 0xff8a30, 2.6, .5), tag: .55, nacht: .9 }); gd.esse = { u: q.x, w: -q.z }; } });
   const bb = new THREE.Box3().setFromObject(g); gd.schildP = gd.schildP || new THREE.Vector3(gd.u, Math.max(bb.max.y, hoehe(gd.u, gd.w) + 1.5) + 1.2, -gd.w); }
 for (const bp of W_BP) { setze(BAUTEN.bauplatz(bp.groesse || 3.4), bp.u, bp.w, bp.rot ?? B); SPERRE.push([bp.u, bp.w, (bp.groesse || 3.4) * 2.1]); }
 for (const dk of W_DEKO) { if (!BAUTEN[dk.typ]) continue; setze(BAUTEN[dk.typ](), dk.u, dk.w, R() * 6); SPERRE.push([dk.u, dk.w, 1.4]); }
@@ -1047,8 +1049,9 @@ function alltagBauen() {
   const SITZ = Array.from({ length: MAX }, (_, i) => { const a = (i < 6 ? 40 + 20 * i : -15 - 17 * (i - 6)) * Math.PI / 180, r = i < 6 ? 2.7 : 3.4; return { u: Math.cos(a) * r, w: Math.sin(a) * r }; });
   for (const p of leute) { const b = W_BERUFE[p.h]; p.tuer = { u: p.haus.u + ((p.z >> 4) % 3 - 1) * .6, w: p.haus.w - (p.haus.typ === "langhaus" ? 4.6 : 2.9) };
     const gd = b === "Woodcutter" && W_GEB.find(x => x.typ === "holzfaellerhuette"), dk = b === "Berry gatherer" && W_DEKO.find(x => x.typ === "beerenbusch");
+    const esse = b === "Blacksmith" && W_GEB.find(x => x.typ === "schmiede" && x.esse);
     const feld = b === "Farmer" && W_GEB.filter(x => x.typ === "gemeinschaftsfeld").sort((a, c) => Math.hypot(a.u - p.haus.u, a.w - p.haus.w) - Math.hypot(c.u - p.haus.u, c.w - p.haus.w))[0];
-    p.arbeit = feld ? { u: feld.u - 6 + (p.z % 5) * 3, w: feld.w - 2 + (p.z % 3), pose: "pflueck", t: "t_arbeit" } : gd ? { u: gd.u + 2.4 + (p.z % 3) * 1.1, w: gd.w - 3.4, pose: "axt", t: "t_arbeit" } : dk ? { u: dk.u + 1.0 + (p.z % 2) * .6, w: dk.w - .9, pose: "pflueck", t: "t_arbeit" }
+    p.arbeit = esse ? { u: esse.esse.u + .9, w: esse.esse.w + 1.1, pose: "axt", t: "t_arbeit" } : feld ? { u: feld.u - 6 + (p.z % 5) * 3, w: feld.w - 2 + (p.z % 3), pose: "pflueck", t: "t_arbeit" } : gd ? { u: gd.u + 2.4 + (p.z % 3) * 1.1, w: gd.w - 3.4, pose: "axt", t: "t_arbeit" } : dk ? { u: dk.u + 1.0 + (p.z % 2) * .6, w: dk.w - .9, pose: "pflueck", t: "t_arbeit" }
       : HALLE ? { u: HALLE.u + ((p.z % 5) - 2) * 1.5, w: HALLE.w - 5.2, pose: "rede", t: "t_halle" } : { ...p.tuer, pose: "steh", t: "t_arbeit" };
     p.hin = weg(p.tuer, p.arbeit); p.einzug = NEU.has(p.h);
     p.auf = 6.5 + (p.z % 60) / 60; p.feier = Math.min(ZEIT.unter, 18) - .25 + ((p.z >> 6) % 40) / 60; p.schlaf = 22 + ((p.z >> 9) % 50) / 60;
@@ -1090,7 +1093,8 @@ function alltagBauen() {
   function tick(s, t) {
     const stunde = Math.floor(s / 3600);
     if (stunde !== wahlStunde) { wahlStunde = stunde;   // mehr als 12 Bewohner: stuendlich wechselnd, damit jeder mal draussen ist
-      wahl = leute.length <= MAX ? leute.slice() : leute.slice().sort((a, b) => hash(a.h + stunde) - hash(b.h + stunde)).slice(0, MAX);
+      const mitBeruf = leute.filter(p => W_BERUFE[p.h]), rest = leute.filter(p => !W_BERUFE[p.h]);   // 18.10.: Berufe (Schmied, Farmer, Holzfaeller) immer draussen
+      wahl = leute.length <= MAX ? leute.slice() : [...mitBeruf.slice(0, MAX), ...rest.sort((a, b) => hash(a.h + stunde) - hash(b.h + stunde))].slice(0, MAX);
       wahl.forEach((p, i) => { p.sitz = i; slots[i].p = p; IM.rumpf.setColorAt(i, cl.setHex(p.tuch)); IM.arm.setColorAt(2 * i, cl); IM.arm.setColorAt(2 * i + 1, cl); IM.hut.setColorAt(i, cl.setHex(p.kopf)); });
       for (let i = wahl.length; i < MAX; i++) slots[i].p = null;
       for (const im of [IM.rumpf, IM.arm, IM.hut]) im.instanceColor.needsUpdate = true; }
