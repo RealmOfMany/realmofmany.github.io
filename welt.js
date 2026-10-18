@@ -7,10 +7,13 @@
 addEventListener("error", e => window.__fehler = String(e.message)); addEventListener("unhandledrejection", e => window.__fehler = String(e.reason));
 import * as THREE from "three";
 const P = new URLSearchParams(location.search);
-const CFG = { tex: true, weich: true, nurTag: P_NACHT(), tiere: false, kleidung: false };   // tiere/kleidung: eigene Releases (18.10. 22 Uhr)   // 18.10. 20:00 Anthony: "erstmal nur Tag im Live" — nurTag=false schaltet Tag/Nacht wieder ein
+const CFG = { tex: true, weich: true, nurTag: P_NACHT(), tiere: false, kleidung: true };   // tiere/kleidung: eigene Releases (18.10. 22 Uhr)   // 18.10. 20:00 Anthony: "erstmal nur Tag im Live" — nurTag=false schaltet Tag/Nacht wieder ein
 let scene, WEILER = false, NB, SPERRE = [], EMITTER = [], FENSTERLICHT = [], FENSTERMAT = [], FEUER = [], RAUCH = [], MENSCHEN = [], WOLKEN = [], SCHAFE = [], GLANZ = [];
 let flussW, PFADE = [], PLATZ = [], hoeheFn;
 let aufWeg = () => false;
+function wegFrei(u, w, r = 1) { if (!aufWeg(u, w, 0) && !aufWeg(u + r, w, 0) && !aufWeg(u - r, w, 0) && !aufWeg(u, w + r, 0) && !aufWeg(u, w - r, 0)) return [u, w];   // 18.10. 22 Uhr: nie auf einem Weg
+  for (let d = 1; d < 12; d += .5) for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283, x = u + Math.cos(a) * d, y = w + Math.sin(a) * d;
+    if (!aufWeg(x, y, 0) && !aufWeg(x + r, y, 0) && !aufWeg(x - r, y, 0) && !aufWeg(x, y + r, 0) && !aufWeg(x, y - r, 0) && Math.abs(y - flussW(x)) > 3.4) return [x, y]; } return [u, w]; }
 function P_NACHT() { return new URLSearchParams(location.search).get("nacht") !== "an"; }   // ?nacht=an: Tag/Nacht zum Testen   // 18.10. abends: Wegenetz (wird nach dem Gelaende gesetzt)
 const WASSER_Y = -.62;
 const hoehe = (u, w) => hoeheFn(u, w);
@@ -1040,7 +1043,7 @@ for (const gd of W_GEB) { const g = BAUTEN[gd.typ] ? BAUTEN[gd.typ](gd) : ARBEIT
   if (g.userData.sitze) gd.sitze = g.userData.sitze.map(([x, z]) => { const q = new THREE.Vector3(x, 0, z).applyMatrix4(g.matrixWorld); return { u: q.x, w: -q.z, r: g.rotation.y + (z < 4.2 ? 0 : Math.PI) }; });
   const bb = new THREE.Box3().setFromObject(g); gd.schildP = gd.schildP || new THREE.Vector3(gd.u, Math.max(bb.max.y, hoehe(gd.u, gd.w) + 1.5) + 1.2, -gd.w); }
 for (const bp of W_BP) { setze(BAUTEN.bauplatz(bp.groesse || 3.4), bp.u, bp.w, bp.rot ?? B); SPERRE.push([bp.u, bp.w, (bp.groesse || 3.4) * 2.1]); }
-for (const dk of W_DEKO) { if (!BAUTEN[dk.typ]) continue; setze(BAUTEN[dk.typ](), dk.u, dk.w, R() * 6); SPERRE.push([dk.u, dk.w, 1.4]); }
+for (const dk of W_DEKO) { if (!BAUTEN[dk.typ]) continue; [dk.u, dk.w] = wegFrei(dk.u, dk.w, dk.typ === "garten" ? 2 : 1); setze(BAUTEN[dk.typ](), dk.u, dk.w, R() * 6); SPERRE.push([dk.u, dk.w, 1.4]); }
 for (const d2 of DOERFER) {   // 18.10.: kleiner Dorfplatz von Dorf 2 (ab 22:30 auch Dorf 3): Steinkreis, Feuerstelle, Baenke
   const g = new THREE.Group();
   g.add(box(9, .05, 9, mat(0x9b7b4e), 0, .02, 0));
@@ -1139,7 +1142,7 @@ function fassHeim(f) { const g = new THREE.Group();
   const fl = mesh(new THREE.ConeGeometry(.22, .55, 6), new THREE.MeshBasicMaterial({ color: 0xffa040 }), false); fl.position.set(2.9, .32, 0); g.add(fl);
   g.userData.flamme = fl; return g; }
 for (const f of W_FIG) {
-  if (f.typ === "fass" && f.u !== undefined) { const g = fassHeim(f); setze(g, f.u, f.w, f.rot ?? Math.PI * .85, 0); SPERRE.push([f.u, f.w, 3.4]);
+  if (f.typ === "fass" && f.u !== undefined) { [f.u, f.w] = wegFrei(f.u, f.w, 1.6); const g = fassHeim(f); setze(g, f.u, f.w, f.rot ?? Math.PI * .85, 0); SPERRE.push([f.u, f.w, 3.4]);
     const m = mensch({ pose: "sitz", tuch: 0x6d5a3a, hut: true }); const lp = g.localToWorld(new THREE.Vector3(1.7, 0, -.5)); g.updateMatrixWorld(true);
     const p = new THREE.Vector3(1.7, 0, -.5).applyMatrix4(g.matrixWorld); m.position.set(p.x, hoehe(p.x, -p.z) + .12, p.z); m.rotation.y = g.rotation.y + Math.PI / 2; scene.add(m);
     const fw = new THREE.Vector3(2.9, .35, 0).applyMatrix4(g.matrixWorld); GLANZ.push({ sp: glanz(fw, 0xff9a40, 1.6, .35), tag: .35, nacht: .8 });
@@ -1148,9 +1151,7 @@ for (const f of W_FIG) {
 }
 // Kleine Polen-Flagge am Haus (weiss/rot, Mast, weht leicht) — @wujekblazej, @benedykt.photography
 FIG.flaggen = []; FIG.schaukeln = [];
-const wegFrei = (u, w, r = 1) => { if (!aufWeg(u, w, 0) && !aufWeg(u + r, w, 0) && !aufWeg(u - r, w, 0) && !aufWeg(u, w + r, 0) && !aufWeg(u, w - r, 0)) return [u, w];   // 18.10. 22 Uhr: nie auf einem Weg
-  for (let d = 1; d < 12; d += .5) for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283, x = u + Math.cos(a) * d, y = w + Math.sin(a) * d;
-    if (!aufWeg(x, y, 0) && !aufWeg(x + r, y, 0) && !aufWeg(x - r, y, 0) && !aufWeg(x, y + r, 0) && !aufWeg(x, y - r, 0) && Math.abs(y - flussW(x)) > 3.4) return [x, y]; } return [u, w]; };
+
 for (const f of W_FIG) {
   const l = LAGE.find(x => x.bewohner.includes(f.handle)); if (!l) continue;
   if (f.typ === "flagge") { const [u, w] = wegFrei(l.u + 2.4, l.w - 1.6, .5), g = new THREE.Group();
@@ -1218,7 +1219,7 @@ const WALD = (() => {
     const p = d < 4 ? 0 : d < 22 ? .06 + .2 * dicht : .35 + .5 * sst(.3, .7, dicht);   // Lichtung -> Waldrand -> Wald
     if (R() > p || !frei(u, w, .8) || Math.hypot(u, w) < 5.5 || VFREI(u, w)) continue;
     WALD.baum(dicht > .6 && R() < .6 ? "tanne" : "laub", rr(.8, 1.3), u, w, R() * 6, d > 55); SPERRE.push([u, w, 1.2]); n++; }
-  for (const dk of W_DEKO) if (dk.typ === "baum") { WALD.baum(R() < .25 ? "tanne" : "laub", rr(.9, 1.2), dk.u, dk.w, R() * 6, false); SPERRE.push([dk.u, dk.w, 1.2]); n++; }   // 18.10. abends: Baeume am Platz von Dorf 2
+  for (const dk of W_DEKO) if (dk.typ === "baum") { [dk.u, dk.w] = wegFrei(dk.u, dk.w, 1); WALD.baum(R() < .25 ? "tanne" : "laub", rr(.9, 1.2), dk.u, dk.w, R() * 6, false); SPERRE.push([dk.u, dk.w, 1.2]); n++; }   // 18.10. abends: Baeume am Platz von Dorf 2
   window.__waldbaeume = n; }
 window.__baeume = WALD.fertig();
 // ---- Tiere ueberall (18.10. 22 Uhr): Huehner + Katzen an Huetten in allen Vierteln und Dorf 2, Rehe/Fuechse/Hasen am Waldrand und auf Lichtungen.
@@ -1315,7 +1316,7 @@ fertig(c);
 // ---- Bewohner-Alltag (17.10.): echte Bewohner nach deutscher Uhrzeit — morgens raus, tagsueber am Beruf, abends am Feuer, nachts drinnen.
 // Alle Besucher sehen dasselbe (Uhrzeit + Handle). Hoechstens 12 gleichzeitig; alle Figuren zusammen 7 Draw-Calls (InstancedMesh). Nur echte Bewohner (Followerliste).
 function alltagBauen() {
-  const MAX = 36, hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
+  const MAX = 72, hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
   const HALLE = LAGE.find(l => l.typ === "langhaus"), NEU = new Set(DATEN.neu || []);
   const ROLLE = new Set([...(DATEN.figuren || []).filter(f => f.typ === "katze").map(f => f.handle), ...W_GEB.filter(g => g.typ === "holzturm" && g.wache).map(g => g.wache)]);   // als Katze unterwegs, nicht zusaetzlich als Mensch
   const leute = LAGE.filter(l => l.bewohner.length).flatMap(l => l.bewohner.filter(h => !ROLLE.has(h)).map(h => ({ h, haus: l, z: hash(h) })));
@@ -1328,14 +1329,14 @@ function alltagBauen() {
     const gd = b === "Woodcutter" && W_GEB.find(x => x.typ === "holzfaellerhuette"), dk = /berry gatherer|herbalist/i.test(b || "") && W_DEKO.find(x => x.typ === "beerenbusch");
     const ort = (DATEN.arbeitsorte || {})[p.h], og = ort && W_GEB.find(x => x.id === ort);   // 18.10.: fester Arbeitsplatz (welche Schmiede / welches Feld)
     const istSchmied = /smith/i.test(b || ""), istFarmer = /farmer|shepherd/i.test(b || "");
-    const esse = istSchmied && (og && (og.esse || og.essen) ? og : W_GEB.find(x => x.typ === "schmiede" && x.esse));
+    const esse = istSchmied && (og && (og.esse || og.essen) ? og : og ? null : W_GEB.find(x => x.typ === "schmiede" && x.esse));   // 18.10. 23 Uhr: eigene Schmiede ohne Esse (Dorf 2) -> dort arbeiten, nicht nach Dorf 1 laufen
     const nr = Object.keys(W_BERUFE).filter(h => (DATEN.arbeitsorte || {})[h] === ort).indexOf(p.h);
     const feld = istFarmer && og && og.typ === "gemeinschaftsfeld" ? og : istFarmer && W_GEB.filter(x => x.typ === "gemeinschaftsfeld").sort((a, c) => Math.hypot(a.u - p.haus.u, a.w - p.haus.w) - Math.hypot(c.u - p.haus.u, c.w - p.haus.w))[0];
     const ep = esse && (esse.essen ? esse.essen[Math.max(0, nr) % esse.essen.length] : esse.esse);
     p.arbeit = esse ? { u: ep.u + .9 + Math.max(0, nr) * .7, w: ep.w + 1.1 + (Math.max(0, nr) % 2) * .8, pose: "axt", t: "t_arbeit" } : feld ? { u: feld.u - 5 + Math.max(0, nr) * 7 + (p.z % 3) * .5, w: feld.w - 2 + (Math.max(0, nr) % 2) * 2.5, pose: "pflueck", t: "t_arbeit" } : gd ? { u: gd.u + 2.4 + (p.z % 3) * 1.1, w: gd.w - 3.4, pose: "axt", t: "t_arbeit" } : dk ? { u: dk.u + 1.0 + (p.z % 2) * .6, w: dk.w - .9, pose: "pflueck", t: "t_arbeit" }
-      : og ? { u: og.u + 2.5 + Math.max(0, nr) * 1.2, w: og.w - 3.9, pose: "rede", t: "t_arbeit" }
+      : og ? { u: og.u + 2.5 + Math.max(0, nr) * 1.2, w: og.w - 3.9, pose: istSchmied ? "axt" : "rede", t: "t_arbeit" }
       : HALLE ? { u: HALLE.u + ((p.z % 5) - 2) * 1.5, w: HALLE.w - 5.2, pose: "rede", t: "t_halle" } : { ...p.tuer, pose: "steh", t: "t_arbeit" };
-    p.hin = weg(p.tuer, p.arbeit); p.einzug = NEU.has(p.h);
+    p.hin = weg(p.tuer, p.arbeit); p.einzug = NEU.has(p.h) && !b;   // 18.10. 23 Uhr: wer einen Beruf hat, arbeitet gleich (keine Einzugsrunde)
     p.auf = 6.5 + (p.z % 60) / 60; p.feier = Math.min(ZEIT.unter, 18) - .25 + ((p.z >> 6) % 40) / 60; p.schlaf = 22 + ((p.z >> 9) % 50) / 60;
     p.tuch = TUCH[p.z % TUCH.length]; p.kopf = [0xd9b964, 0x3a2a1a, 0x7a4a24, 0xb08a50, p.tuch][(p.z >> 3) % 5];
     const KLEID = [[/smith/i, 0x4a3426, 0x2a1e16], [/farmer|shepherd/i, 0x8a7a3a, 0xd9b964], [/woodcutter/i, 0x5b6b34, 0x7a4a24], [/herbalist/i, 0x5f7a5a, 0x4a5a32], [/berry/i, 0x7a3a4a, 0xb08a50]].find(k => k[0].test(b || ""));
