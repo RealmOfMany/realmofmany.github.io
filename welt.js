@@ -10,7 +10,7 @@ const P = new URLSearchParams(location.search);
 const CFG = { tex: true, weich: true, nurTag: P_NACHT(), tiere: P.get("tiere") !== "aus", kleidung: true };   // tiere/kleidung: eigene Releases (18.10. 22 Uhr)   // 18.10. 20:00 Anthony: "erstmal nur Tag im Live" — nurTag=false schaltet Tag/Nacht wieder ein
 let scene, WEILER = false, NB, SPERRE = [], EMITTER = [], FENSTERLICHT = [], FENSTERMAT = [], FEUER = [], RAUCH = [], MENSCHEN = [], WOLKEN = [], SCHAFE = [], GLANZ = [];
 let flussW, PFADE = [], PLATZ = [], hoeheFn;
-let aufWeg = () => false;
+let aufWeg = () => false, aufHauptweg = () => false;
 function wegFrei(u, w, r = 1) { if (!aufWeg(u, w, 0) && !aufWeg(u + r, w, 0) && !aufWeg(u - r, w, 0) && !aufWeg(u, w + r, 0) && !aufWeg(u, w - r, 0)) return [u, w];   // 18.10. 22 Uhr: nie auf einem Weg
   for (let d = 1; d < 12; d += .5) for (let k = 0; k < 12; k++) { const a = k / 12 * 6.283, x = u + Math.cos(a) * d, y = w + Math.sin(a) * d;
     if (!aufWeg(x, y, 0) && !aufWeg(x + r, y, 0) && !aufWeg(x - r, y, 0) && !aufWeg(x, y + r, 0) && !aufWeg(x, y - r, 0) && Math.abs(y - flussW(x)) > 3.4) return [x, y]; } return [u, w]; }
@@ -1068,7 +1068,7 @@ if (W_WEGE.length) {
   const yMax = (u, w, hb) => Math.max(terY(u, w), terY(u + hb, w), terY(u - hb, w), terY(u, w + hb), terY(u, w - hb));
   const RC = 1.0, RU0 = Math.min(...W_WEGE.flatMap(x => x.linie.map(p => p[0]))) - 4, RW0 = Math.min(...W_WEGE.flatMap(x => x.linie.map(p => p[1]))) - 4;
   const RNU = Math.ceil((Math.max(...W_WEGE.flatMap(x => x.linie.map(p => p[0]))) + 4 - RU0) / RC), RNW = Math.ceil((Math.max(...W_WEGE.flatMap(x => x.linie.map(p => p[1]))) + 4 - RW0) / RC);
-  const RAST = new Float32Array(RNU * RNW);   // halbe Wegbreite je Zelle (0 = kein Weg)
+  const RAST = new Float32Array(RNU * RNW), RAST2 = new Uint8Array(RNU * RNW);   // RAST2: nur Wege/Strassen (ohne Huettenpfade) -> Palisadentore   // halbe Wegbreite je Zelle (0 = kein Weg)
   const pos = [], col = [], idx = [], c = new THREE.Color(), cE = new THREE.Color(PAL.erde), cR = new THREE.Color(PAL.gras), cD = new THREE.Color(PAL.erde).multiplyScalar(.82);
   let n = 0;
   for (const wg of W_WEGE) { const L = wg.linie, haupt = wg.art === "strasse", pfad = wg.art === "pfad";
@@ -1081,7 +1081,7 @@ if (W_WEGE.length) {
       const nass = Math.abs(w - flussW(u)) < 3.0;
       const hb = b * .5 * (1 + .16 * (fbm(u * .35 + 7, w * .35) - .5) * 2), hl = hb * (1 + .12 * (rausch(u * 1.7, w * 1.3) - .5)), hr = hb * (1 + .12 * (rausch(u * 1.3 + 9, w * 1.7) - .5));
       for (let ru = -Math.ceil(hb); ru <= Math.ceil(hb); ru++) for (let rw = -Math.ceil(hb); rw <= Math.ceil(hb); rw++) { if (Math.hypot(ru, rw) * RC > hb + .35) continue;
-        const gi = Math.round((u + ru * RC - RU0) / RC), gj = Math.round((w + rw * RC - RW0) / RC); if (gi >= 0 && gj >= 0 && gi < RNU && gj < RNW) RAST[gi * RNW + gj] = Math.max(RAST[gi * RNW + gj], hb); }
+        const gi = Math.round((u + ru * RC - RU0) / RC), gj = Math.round((w + rw * RC - RW0) / RC); if (gi >= 0 && gj >= 0 && gi < RNU && gj < RNW) RAST[gi * RNW + gj] = Math.max(RAST[gi * RNW + gj], hb); if (!pfad) RAST2[gi * RNW + gj] = 1; }
       if (nass) { offen = false; continue; }
       const y = yMax(u, w, hb) + (haupt ? .07 : .06) + (pfad ? -.005 : 0), nu = -tw, nw = tu, mh = fbm(u * .5, w * .5);
       const P = [[u + nu * hl, w + nw * hl], [u + nu * hl * .45, w + nw * hl * .45], [u - nu * hr * .45, w - nw * hr * .45], [u - nu * hr, w - nw * hr]];
@@ -1092,6 +1092,7 @@ if (W_WEGE.length) {
   const g = new THREE.BufferGeometry(); g.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); g.setIndex(idx); g.computeVertexNormals();
   const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }));
   m.receiveShadow = true; scene.add(m); window.__wege = W_WEGE.length;
+  aufHauptweg = (u, w) => { const gi = Math.round((u - RU0) / RC), gj = Math.round((w - RW0) / RC); return gi >= 0 && gj >= 0 && gi < RNU && gj < RNW && RAST2[gi * RNW + gj] === 1; };
   aufWeg = (u, w, r = 0) => { const gi = Math.round((u - RU0) / RC), gj = Math.round((w - RW0) / RC); if (gi < 0 || gj < 0 || gi >= RNU || gj >= RNW) return false;
     const hb = RAST[gi * RNW + gj]; return hb > 0 && r < 2.5; };
   // Trittsteine an den Furten
@@ -1187,23 +1188,30 @@ for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
       if (q) L += Math.hypot(p.u - q.u, p.w - q.w); p.L = L; ARC.push(p); q = p; } }
   const degBei = i => { if (!ARC.length) return gd.von_grad + (gd.bis_grad - gd.von_grad) * i / (N - 1); const ziel = ARC[ARC.length - 1].L * i / (N - 1); let lo = 0, hi = ARC.length - 1;
     while (hi - lo > 1) { const m = (lo + hi) >> 1; if (ARC[m].L < ziel) lo = m; else hi = m; } return ARC[hi].deg; };
-  for (let i = 0; i < N; i++) { const deg = degBei(i), a = deg * Math.PI / 180, r0 = RAD(deg) + (fbm(i * .08, 7.3) - .5) * 4; PP.push({ u: C.u + Math.cos(a) * r0 * (gd.su || 1), w: C.w + Math.sin(a) * r0 * (gd.sw || 1), a }); }
-  const HUETTE_NAH = (u, w) => LAGE.some(l => Math.hypot(l.u - u, l.w - w) < (l.typ === "langhaus" ? 8 : 3.4)) || Math.abs(w - flussW(u)) < 3.6
+  for (let i = 0; i < N; i++) { const deg = degBei(i), a = deg * Math.PI / 180, r0 = RAD(deg) + (fbm(i * .08, 7.3) - .5) * (gd.radien ? .8 : 4); PP.push({ u: C.u + Math.cos(a) * r0 * (gd.su || 1), w: C.w + Math.sin(a) * r0 * (gd.sw || 1), a }); }
+  const HUETTE_NAH = (u, w) => LAGE.some(l => Math.hypot(l.u - u, l.w - w) < (l.typ === "langhaus" ? 8 : gd.radien ? 2.9 : 3.4)) || Math.abs(w - flussW(u)) < 3.6
     || W_GEB.some(g => FUSS[g.typ] && Math.hypot(g.u - u, g.w - w) < FUSS[g.typ] + 1);   // 18.10.: Tor/Luecke statt durch Huetten oder den Bach
   const V = Math.max(0, gd.fertig[0]), Bi = Math.min(N, gd.fertig[1]), KOMPLETT = V <= 0 && Bi >= N; gd.prozent = Math.round((Bi - V) / N * 100);
+  const pfahl = (i, p) => { const g = new THREE.Group(), h = 2.5 + h2(i, 3) * .4; const sm = mesh(new THREE.CylinderGeometry(.2, .23, h, 7), mat(i % 3 ? "stamm" : "holz")); sm.position.y = h / 2; g.add(sm);
+    const sp = mesh(new THREE.ConeGeometry(.2, .55, 7), mat("stamm")); sp.position.y = h + .27; g.add(sp); setze(g, p.u, p.w, i * 1.7); SPERRE.push([p.u, p.w, 1.6]); };
   const TORE = [];   // 18.10. abends: wo ein Weg die Palisade kreuzt -> Tor (offen)
   let hLuecken = 0, hVorher = false;
   for (const [i, p] of PP.entries()) {
     if (HUETTE_NAH(p.u, p.w)) { const nass = Math.abs(p.w - flussW(p.u)) < 3.6; if (!nass && !hVorher) hLuecken++; hVorher = !nass; continue; } hVorher = false;
-    if (aufWeg(p.u, p.w, 0) || aufWeg(p.u + Math.cos(p.a) * .8, p.w + Math.sin(p.a) * .8, 0) || aufWeg(p.u - Math.cos(p.a) * .8, p.w - Math.sin(p.a) * .8, 0)) { const t = TORE[TORE.length - 1]; if (t && i - t.bis <= 2) t.bis = i; else TORE.push({ von: i, bis: i }); continue; }
+    if (aufHauptweg(p.u, p.w) || aufHauptweg(p.u + Math.cos(p.a) * .8, p.w + Math.sin(p.a) * .8) || aufHauptweg(p.u - Math.cos(p.a) * .8, p.w - Math.sin(p.a) * .8)) { const t = TORE[TORE.length - 1]; if (t && i - t.bis <= 2) t.bis = i; else TORE.push({ von: i, bis: i }); continue; }
     if (i >= V && i < Bi) { const g = new THREE.Group(), h = 2.5 + h2(i, 3) * .4;
       const sm = mesh(new THREE.CylinderGeometry(.2, .23, h, 7), mat(i % 3 ? "stamm" : "holz")); sm.position.y = h / 2; g.add(sm);
       const sp = mesh(new THREE.ConeGeometry(.2, .55, 7), mat("stamm")); sp.position.y = h + .27; g.add(sp); setze(g, p.u, p.w, i * 1.7); }
     else if (i % 5 === 0) { const g = new THREE.Group(); g.add(box(.12, .9, .12, mat("holz"), 0, .45, 0)); g.add(box(.16, .12, .16, mat(0xc8402a), 0, .9, 0)); setze(g, p.u, p.w, 0); }
     SPERRE.push([p.u, p.w, 1.6]); }
   let toreGebaut = 0;
+  for (const t of [...TORE]) {   // 19.10.: Mini-Luecke (Weg streift nur) -> Pfaehle; langer Lauf (Weg laeuft mit) -> Tor 5 m in der Mitte, Rest Pfaehle
+    const L0 = Math.hypot(PP[Math.min(N - 1, t.bis + 1)].u - PP[Math.max(0, t.von - 1)].u, PP[Math.min(N - 1, t.bis + 1)].w - PP[Math.max(0, t.von - 1)].w);
+    if (t.bis < V || t.von >= Bi) continue;
+    if (L0 < 1.2) { for (let i = t.von; i <= t.bis; i++) if (!HUETTE_NAH(PP[i].u, PP[i].w)) pfahl(i, PP[i]); TORE.splice(TORE.indexOf(t), 1); continue; }
+    if (L0 > 10) { const m = Math.round((t.von + t.bis) / 2), halb = Math.max(1, Math.round(2.6 / (L0 / Math.max(1, t.bis - t.von + 2)))); for (let i = t.von; i <= t.bis; i++) if (Math.abs(i - m) > halb && !HUETTE_NAH(PP[i].u, PP[i].w)) pfahl(i, PP[i]); t.von = m - halb; t.bis = m + halb; } }
   for (const t of TORE) { const a = PP[Math.max(0, t.von - 1)], b = PP[Math.min(N - 1, t.bis + 1)], L = Math.hypot(b.u - a.u, b.w - a.w), g = new THREE.Group();
-    if (t.bis < V || t.von >= Bi || L > 7 || L < 1.5) continue;   // Weg laeuft an der Palisade entlang -> offene Luecke statt Riesentor
+    if (t.bis < V || t.von >= Bi || L > 10 || L < 1.2) continue;   // Weg laeuft an der Palisade entlang -> offene Luecke statt Riesentor
     for (const x of [-L / 2, L / 2]) { const pf = mesh(new THREE.CylinderGeometry(.26, .3, 4.2, 7), mat("stamm")); pf.position.set(x, 2.1, 0); g.add(pf); }
     g.add(box(L + .8, .3, .32, mat("holz"), 0, 3.9, 0)); g.add(box(L + 1.2, .14, .9, mat("holzDunkel"), 0, 4.15, 0));
     for (const sg of [-1, 1]) { const f = box(L * .5 - .2, 2.4, .12, mat("holz"), 0, 1.3, 0), d = new THREE.Group(); f.position.x = -sg * (L * .25 - .1); d.add(f); d.position.set(sg * L / 2, 0, 0); d.rotation.y = sg * 1.25; g.add(d); }
