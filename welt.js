@@ -762,6 +762,16 @@ const BAUTEN = {
     for (const [x, z, w, d] of [[0, -a, 2 * a, .04], [0, a, 2 * a, .04], [-a, 0, .04, 2 * a], [a, 0, .04, 2 * a]]) g.add(box(w, .04, d, mat(0xe8dcc0), x, .7, z));
     const sch = box(.9, .6, .07, mat(0xd9b77a), a - .3, .85, a + .5); g.add(sch); g.add(box(.1, .9, .1, mat("stamm"), a - .3, .45, a + .45));
     return g; },
+  taverne() {   // 18.10.: Taverne — Fachwerk, Wirtshausschild mit Krug, Faesser, Tische + Baenke draussen, Fenster leuchten abends
+    const g = new THREE.Group(); const h = haus({ l: 7.2, b: 5.0, h: 2.7, wand: "fachwerk", dach: "stroh", kamin: true, licht: true }); g.add(h);
+    const arm = box(1.2, .1, .1, mat("holzDunkel"), 3.9, 2.6, 2.7); g.add(arm); const tafel = box(.08, .7, .9, mat(0xc9a04a), 4.4, 2.15, 2.7); g.add(tafel);
+    const krug = mesh(new THREE.CylinderGeometry(.18, .16, .32, 8), mat(0xe8dcc0)); krug.position.set(4.46, 2.15, 2.7); g.add(krug);
+    for (const [x, z] of [[-4.1, 1.6], [-4.1, .6], [-4.1, -.4], [4.1, -1.2]]) { const f = fass(); f.position.set(x, 0, z); g.add(f); }
+    for (const x of [-1.8, 1.8]) { g.add(box(2.0, .1, .9, mat("holz"), x, .78, 4.2)); g.add(box(.12, .74, .7, mat("holzDunkel"), x - .8, .37, 4.2)); g.add(box(.12, .74, .7, mat("holzDunkel"), x + .8, .37, 4.2));
+      for (const dz of [-.85, .85]) { g.add(box(2.0, .08, .32, mat("holz"), x, .46, 4.2 + dz)); g.add(box(.1, .44, .28, mat("holzDunkel"), x, .22, 4.2 + dz)); }
+      for (const dx of [-.5, .5]) { const k = mesh(new THREE.CylinderGeometry(.07, .06, .16, 7), mat(0xe8dcc0)); k.position.set(x + dx, .91, 4.2); g.add(k); } }
+    g.userData.sitze = [[-2.5, 3.35], [-1.1, 3.35], [-2.5, 5.05], [-1.1, 5.05], [1.1, 3.35], [2.5, 3.35], [1.1, 5.05], [2.5, 5.05]];
+    return g; },
   grosseschmiede() {   // 18.10.: grosse Schmiede — Steinhaus, offene Werkstatt mit 2 Essen, Blasebalg, 2 Ambosse, Erz + Holz
     const g = new THREE.Group(), L = 8, T = 5;
     g.add(box(L + .6, .5, T + 3.6, mat("stein"), 0, .0, .9));
@@ -821,7 +831,7 @@ const TX = { wunsch_titel: "Today's wish", wunsch_von: "wish by", naechster: "",
   leeres_haus: "Common house", rennen_titel: "Wish race", rennen_hinweis: "comment on the latest reel — most likes gets built",
   seit: "Since your last visit:", seit_neu: "{namen} moved in", seit_weg: "{n} moved away", seit_bau: "{name} +{plus} %", seit_bau_neu: "new: {name}",
   gebaut: "built", geplant: "planned", rodung: "Clearing the forest", rodung_klein: "room for new cabins", fertig_zu: "{p} % built",
-  t_arbeit: "at work", t_wache: "on patrol", t_nachtwache: "night watch", t_weg: "on the way", t_heim: "heading home", t_feuer: "by the fire", t_einzug: "moving in", t_halle: "at the Village Hall",
+  t_arbeit: "at work", t_wache: "on patrol", t_taverne: "at the tavern", t_nachtwache: "night watch", t_weg: "on the way", t_heim: "heading home", t_feuer: "by the fire", t_einzug: "moving in", t_halle: "at the Village Hall",
   saison: { winter: "winter", spring: "spring", summer: "summer", autumn: "autumn" }, wetter: { regen: "rain", schnee: "snow", nebel: "mist", klar: "" },
   ...(DATEN.texte || {}) };
 const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -953,6 +963,7 @@ for (const gd of W_GEB) { const g = BAUTEN[gd.typ] ? BAUTEN[gd.typ](gd) : ARBEIT
   if (gd.typ === "schmiede" || gd.typ === "grosseschmiede") g.traverse(o => { if (o.isMesh && o.material.isMeshBasicMaterial && o.material.color.getHex() === 0xff7a2a) {   // 18.10.: Glut der Esse(n) leuchtet
     const q = o.getWorldPosition(new THREE.Vector3()); GLANZ.push({ sp: glanz(q.clone().add(new THREE.Vector3(0, .25, 0)), 0xff8a30, 2.6, .5), tag: .55, nacht: .9 });
     gd.esse = gd.esse || { u: q.x, w: -q.z }; (gd.essen = gd.essen || []).push({ u: q.x, w: -q.z }); } });
+  if (g.userData.sitze) gd.sitze = g.userData.sitze.map(([x, z]) => { const q = new THREE.Vector3(x, 0, z).applyMatrix4(g.matrixWorld); return { u: q.x, w: -q.z, r: g.rotation.y + (z < 4.2 ? 0 : Math.PI) }; });
   const bb = new THREE.Box3().setFromObject(g); gd.schildP = gd.schildP || new THREE.Vector3(gd.u, Math.max(bb.max.y, hoehe(gd.u, gd.w) + 1.5) + 1.2, -gd.w); }
 for (const bp of W_BP) { setze(BAUTEN.bauplatz(bp.groesse || 3.4), bp.u, bp.w, bp.rot ?? B); SPERRE.push([bp.u, bp.w, (bp.groesse || 3.4) * 2.1]); }
 for (const dk of W_DEKO) { if (!BAUTEN[dk.typ]) continue; setze(BAUTEN[dk.typ](), dk.u, dk.w, R() * 6); SPERRE.push([dk.u, dk.w, 1.4]); }
@@ -1145,6 +1156,7 @@ function alltagBauen() {
     const feld = istFarmer && og && og.typ === "gemeinschaftsfeld" ? og : istFarmer && W_GEB.filter(x => x.typ === "gemeinschaftsfeld").sort((a, c) => Math.hypot(a.u - p.haus.u, a.w - p.haus.w) - Math.hypot(c.u - p.haus.u, c.w - p.haus.w))[0];
     const ep = esse && (esse.essen ? esse.essen[Math.max(0, nr) % esse.essen.length] : esse.esse);
     p.arbeit = esse ? { u: ep.u + .9 + Math.max(0, nr) * .7, w: ep.w + 1.1 + (Math.max(0, nr) % 2) * .8, pose: "axt", t: "t_arbeit" } : feld ? { u: feld.u - 5 + Math.max(0, nr) * 7 + (p.z % 3) * .5, w: feld.w - 2 + (Math.max(0, nr) % 2) * 2.5, pose: "pflueck", t: "t_arbeit" } : gd ? { u: gd.u + 2.4 + (p.z % 3) * 1.1, w: gd.w - 3.4, pose: "axt", t: "t_arbeit" } : dk ? { u: dk.u + 1.0 + (p.z % 2) * .6, w: dk.w - .9, pose: "pflueck", t: "t_arbeit" }
+      : og ? { u: og.u + 2.5 + Math.max(0, nr) * 1.2, w: og.w - 3.9, pose: "rede", t: "t_arbeit" }
       : HALLE ? { u: HALLE.u + ((p.z % 5) - 2) * 1.5, w: HALLE.w - 5.2, pose: "rede", t: "t_halle" } : { ...p.tuer, pose: "steh", t: "t_arbeit" };
     p.hin = weg(p.tuer, p.arbeit); p.einzug = NEU.has(p.h);
     p.auf = 6.5 + (p.z % 60) / 60; p.feier = Math.min(ZEIT.unter, 18) - .25 + ((p.z >> 6) % 40) / 60; p.schlaf = 22 + ((p.z >> 9) % 50) / 60;
@@ -1189,8 +1201,10 @@ function alltagBauen() {
     const H = s / 3600, v = 1.15, P = 240, ph = (p.z % 997) / 997 * P;
     if (H < p.auf || H >= p.schlaf + .25) return null;
     if (H >= p.schlaf) { const f = weg(SITZ[p.sitz], p.tuer), x = amWeg(f, (H - p.schlaf) * 3600 * v); return (H - p.schlaf) * 3600 * v > f.L ? null : { ...x, pose: "geh", t: "t_heim" }; }
-    if (H >= p.feier) { const f = weg(p.arbeit, SITZ[p.sitz]), el = (H - p.feier) * 3600 * v; if (el < f.L) return { ...amWeg(f, el), pose: "geh", t: "t_feuer" };
-      return { ...SITZ[p.sitz], r: Math.atan2(-SITZ[p.sitz].u, SITZ[p.sitz].w), pose: "sitz", t: "t_feuer" }; }
+    if (H >= p.feier) { const TV = W_GEB.find(g => g.typ === "taverne" && g.sitze), gast = TV && p.sitz % 3 === 1 && p.sitz / 3 < TV.sitze.length;   // 18.10.: abends sitzt ein Teil in der Taverne
+      const ziel = gast ? TV.sitze[Math.floor(p.sitz / 3)] : SITZ[p.sitz];
+      const f = weg(p.arbeit, ziel), el = (H - p.feier) * 3600 * v; if (el < f.L) return { ...amWeg(f, el), pose: "geh", t: gast ? "t_taverne" : "t_feuer" };
+      return { ...ziel, r: gast ? ziel.r : Math.atan2(-ziel.u, ziel.w), pose: "sitz", t: gast ? "t_taverne" : "t_feuer" }; }
     const k = ((s + ph) % P) / P;
     if (p.einzug) { const f = weg({ u: 1.2, w: -2.6 }, p.tuer);   // erster Tag: traegt Sachen vom Feuer zur eigenen Huette
       if (k < .5) return { ...amWeg(f, k / .5 * f.L), pose: "geh", t: "t_einzug", buendel: true };
