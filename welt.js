@@ -7,7 +7,7 @@
 addEventListener("error", e => window.__fehler = String(e.message)); addEventListener("unhandledrejection", e => window.__fehler = String(e.reason));
 import * as THREE from "three";
 const P = new URLSearchParams(location.search);
-const CFG = { tex: true, weich: true, nurTag: P_NACHT(), tiere: false, kleidung: true };   // tiere/kleidung: eigene Releases (18.10. 22 Uhr)   // 18.10. 20:00 Anthony: "erstmal nur Tag im Live" — nurTag=false schaltet Tag/Nacht wieder ein
+const CFG = { tex: true, weich: true, nurTag: P_NACHT(), tiere: P.get("tiere") !== "aus", kleidung: true };   // tiere/kleidung: eigene Releases (18.10. 22 Uhr)   // 18.10. 20:00 Anthony: "erstmal nur Tag im Live" — nurTag=false schaltet Tag/Nacht wieder ein
 let scene, WEILER = false, NB, SPERRE = [], EMITTER = [], FENSTERLICHT = [], FENSTERMAT = [], FEUER = [], RAUCH = [], MENSCHEN = [], WOLKEN = [], SCHAFE = [], GLANZ = [];
 let flussW, PFADE = [], PLATZ = [], hoeheFn;
 let aufWeg = () => false;
