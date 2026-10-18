@@ -1062,7 +1062,12 @@ for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
   const C = gd.c, PR = gd.r, N = gd.n, PP = [], SEILE = new THREE.Group(); scene.add(SEILE);
   const RAD = gd.radien ? (deg => { const d = ((deg % 360) + 360) % 360, k = Math.floor(d), f = d - k; return gd.radien[k % 360] * (1 - f) + gd.radien[(k + 1) % 360] * f; }) : () => PR;   // 18.10. abends: Radius je Winkel (aeussere Palisade um ganz Dorf 1)
   const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5 };
-  for (let i = 0; i < N; i++) { const deg = gd.von_grad + (gd.bis_grad - gd.von_grad) * i / (N - 1), a = deg * Math.PI / 180, r0 = RAD(deg) + (fbm(i * .08, 7.3) - .5) * 4; PP.push({ u: C.u + Math.cos(a) * r0 * (gd.su || 1), w: C.w + Math.sin(a) * r0 * (gd.sw || 1), a }); }
+  const ARC = [];   // 18.10. abends: Pfaehle nach Bogenlaenge verteilen (bei Radius je Winkel sonst Loecher an Ausbuchtungen)
+  if (gd.radien) { let L = 0, q = null; for (let k = 0; k <= 4000; k++) { const deg = gd.von_grad + (gd.bis_grad - gd.von_grad) * k / 4000, a = deg * Math.PI / 180, p = { u: C.u + Math.cos(a) * RAD(deg) * (gd.su || 1), w: C.w + Math.sin(a) * RAD(deg) * (gd.sw || 1), deg };
+      if (q) L += Math.hypot(p.u - q.u, p.w - q.w); p.L = L; ARC.push(p); q = p; } }
+  const degBei = i => { if (!ARC.length) return gd.von_grad + (gd.bis_grad - gd.von_grad) * i / (N - 1); const ziel = ARC[ARC.length - 1].L * i / (N - 1); let lo = 0, hi = ARC.length - 1;
+    while (hi - lo > 1) { const m = (lo + hi) >> 1; if (ARC[m].L < ziel) lo = m; else hi = m; } return ARC[hi].deg; };
+  for (let i = 0; i < N; i++) { const deg = degBei(i), a = deg * Math.PI / 180, r0 = RAD(deg) + (fbm(i * .08, 7.3) - .5) * 4; PP.push({ u: C.u + Math.cos(a) * r0 * (gd.su || 1), w: C.w + Math.sin(a) * r0 * (gd.sw || 1), a }); }
   const HUETTE_NAH = (u, w) => LAGE.some(l => Math.hypot(l.u - u, l.w - w) < (l.typ === "langhaus" ? 8 : 3.4)) || Math.abs(w - flussW(u)) < 3.6
     || W_GEB.some(g => FUSS[g.typ] && Math.hypot(g.u - u, g.w - w) < FUSS[g.typ] + 1);   // 18.10.: Tor/Luecke statt durch Huetten oder den Bach
   const V = Math.max(0, gd.fertig[0]), Bi = Math.min(N, gd.fertig[1]), KOMPLETT = V <= 0 && Bi >= N; gd.prozent = Math.round((Bi - V) / N * 100);
@@ -1075,13 +1080,14 @@ for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
       const sp = mesh(new THREE.ConeGeometry(.2, .55, 7), mat("stamm")); sp.position.y = h + .27; g.add(sp); setze(g, p.u, p.w, i * 1.7); }
     else if (i % 5 === 0) { const g = new THREE.Group(); g.add(box(.12, .9, .12, mat("holz"), 0, .45, 0)); g.add(box(.16, .12, .16, mat(0xc8402a), 0, .9, 0)); setze(g, p.u, p.w, 0); }
     SPERRE.push([p.u, p.w, 1.6]); }
+  let toreGebaut = 0;
   for (const t of TORE) { const a = PP[Math.max(0, t.von - 1)], b = PP[Math.min(N - 1, t.bis + 1)], L = Math.hypot(b.u - a.u, b.w - a.w), g = new THREE.Group();
     if (t.bis < V || t.von >= Bi || L > 7 || L < 1.5) continue;   // Weg laeuft an der Palisade entlang -> offene Luecke statt Riesentor
     for (const x of [-L / 2, L / 2]) { const pf = mesh(new THREE.CylinderGeometry(.26, .3, 4.2, 7), mat("stamm")); pf.position.set(x, 2.1, 0); g.add(pf); }
     g.add(box(L + .8, .3, .32, mat("holz"), 0, 3.9, 0)); g.add(box(L + 1.2, .14, .9, mat("holzDunkel"), 0, 4.15, 0));
     for (const sg of [-1, 1]) { const f = box(L * .5 - .2, 2.4, .12, mat("holz"), 0, 1.3, 0), d = new THREE.Group(); f.position.x = -sg * (L * .25 - .1); d.add(f); d.position.set(sg * L / 2, 0, 0); d.rotation.y = sg * 1.25; g.add(d); }
-    setze(g, (a.u + b.u) / 2, (a.w + b.w) / 2, -Math.atan2(b.w - a.w, b.u - a.u)); }
-  gd.tore = TORE.length;
+    setze(g, (a.u + b.u) / 2, (a.w + b.w) / 2, -Math.atan2(b.w - a.w, b.u - a.u)); toreGebaut++; }
+  gd.tore = toreGebaut; gd.luecken = TORE.length - toreGebaut;
   const seil = (a, b) => { const L = Math.hypot(b.u - a.u, b.w - a.w), sl = box(L, .04, .04, mat(0xe8dcc0)); sl.position.set((a.u + b.u) / 2, (hoehe(a.u, a.w) + hoehe(b.u, b.w)) / 2 + .7, -(a.w + b.w) / 2); sl.rotation.y = -Math.atan2(b.w - a.w, b.u - a.u); SEILE.add(sl); };   // 18.10.: in Gruppe -> wird zusammengefasst (sonst 1 Draw-Call je Seil)
   for (let i = Bi; i < N - 5; i += 5) seil(PP[i], PP[i + 5]); for (let i = 5; i < V; i += 5) seil(PP[i - 5], PP[i]);
   const M = PP[Math.min(N - 1, Math.round((V + Bi) / 2))], IN = { u: C.u + Math.cos(M.a) * (PR - 4), w: C.w + Math.sin(M.a) * (PR - 4) };
