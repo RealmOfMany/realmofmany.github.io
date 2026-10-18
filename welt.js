@@ -7,10 +7,11 @@
 addEventListener("error", e => window.__fehler = String(e.message)); addEventListener("unhandledrejection", e => window.__fehler = String(e.reason));
 import * as THREE from "three";
 const P = new URLSearchParams(location.search);
-const CFG = { tex: true, weich: true };
+const CFG = { tex: true, weich: true, nurTag: P_NACHT() };   // 18.10. 20:00 Anthony: "erstmal nur Tag im Live" — nurTag=false schaltet Tag/Nacht wieder ein
 let scene, WEILER = false, NB, SPERRE = [], EMITTER = [], FENSTERLICHT = [], FENSTERMAT = [], FEUER = [], RAUCH = [], MENSCHEN = [], WOLKEN = [], SCHAFE = [], GLANZ = [];
 let flussW, PFADE = [], PLATZ = [], hoeheFn;
-let aufWeg = () => false;   // 18.10. abends: Wegenetz (wird nach dem Gelaende gesetzt)
+let aufWeg = () => false;
+function P_NACHT() { return new URLSearchParams(location.search).get("nacht") !== "an"; }   // ?nacht=an: Tag/Nacht zum Testen   // 18.10. abends: Wegenetz (wird nach dem Gelaende gesetzt)
 const WASSER_Y = -.62;
 const hoehe = (u, w) => hoeheFn(u, w);
 
@@ -873,7 +874,9 @@ const ZEIT = (() => {
   const L = 12.2 + 4.55 * Math.sin(2 * Math.PI * (doy - 80) / 365), mittag = 12.1 + (sommer ? 1 : 0);   // Berlin: Tageslaenge 7.6–16.8 h
   return { sek, auf: mittag - L / 2, unter: mittag + L / 2, text: () => { const s = sek(); return `${String(Math.floor(s / 3600)).padStart(2, "0")}:${String(Math.floor(s / 60) % 60).padStart(2, "0")}`; } };
 })();
+const tagSek = s => { if (!CFG.nurTag) return s; const H = s / 3600; return H >= 8 && H < 17 ? s : 9 * 3600 + (s % (7 * 3600)); };   // nur Tag: Nachtstunden laufen als Tagesablauf (09–16 Uhr) weiter
 function nachtGrad(stunde) {   // 0 Tag · .5 Daemmerung · 1 Nacht
+  if (CFG.nurTag) return 0;
   const { auf, unter } = ZEIT, k = (a, b, x) => weich((x - a) / (b - a));
   if (stunde < 12) return stunde < auf ? 1 - .5 * k(auf - 1, auf, stunde) : .5 - .5 * k(auf, auf + .75, stunde);
   return stunde < unter ? .5 * k(unter - 1.25, unter, stunde) : .5 + .5 * k(unter, unter + 1, stunde); }
@@ -882,7 +885,7 @@ const WETTER = (() => { const q = P.get("wetter"); if (q) return q;   // aus Dat
   return SAISON.name === "winter" ? (x < .35 ? "schnee" : "klar") : SAISON.name === "autumn" ? (x < .28 ? "regen" : x < .48 ? "nebel" : "klar")
     : SAISON.name === "spring" ? (x < .25 ? "regen" : "klar") : (x < .12 ? "regen" : "klar"); })();
 const UHR = document.getElementById("uhr");
-const uhrText = () => { if (UHR) UHR.textContent = [ZEIT.text(), TX.saison[SAISON.name], TX.wetter[WETTER]].filter(Boolean).join(" · "); };
+const uhrText = () => { if (UHR) UHR.textContent = [CFG.nurTag ? null : ZEIT.text(), TX.saison[SAISON.name], TX.wetter[WETTER]].filter(Boolean).join(" · "); };
 uhrText();
 // ---- "Since your last visit" (nur im Browser des Besuchers, localStorage; kein Server)
 { const el = document.getElementById("seit"), KEY = "realm-besuch", bew = DATEN.haeuser.flatMap(h => h.bewohner), bau = {};
@@ -1325,11 +1328,11 @@ function alltagBauen() {
   function wache(p, s) {   // 18.10.: Wachen patrouillieren innen an der Palisade, Torwaechter am Dorfeingang (Furt), Nachtwache nachts mit Fackel
     const H = s / 3600, rolle = W_BERUFE[p.h], nacht = H < p.auf || H >= p.schlaf, gi = WACHEN.indexOf(p.h);
     if (/gatekeeper/i.test(rolle)) return nacht ? null : { u: 7.5, w: 4.5, r: Math.PI, pose: "steh", t: "t_wache", speer: true };
-    if (/night/i.test(rolle) ? !nacht : nacht) return null;
+    if (!CFG.nurTag && (/night/i.test(rolle) ? !nacht : nacht)) return null;
     const c = PALI ? PALI.c : { u: 0, w: 13 }, R = (PALI ? PALI.r : 30) - 3, a0 = 10 + gi * 17, a1 = a0 + 34, per = 34 * Math.PI / 180 * R / 1.0;
     const z = ((s + gi * 37) % (2 * per)) / per, k = z < 1 ? z : 2 - z, a = (a0 + (a1 - a0) * k) * Math.PI / 180;
     const u = c.u + Math.cos(a) * R, w = c.w + Math.sin(a) * R, dir = z < 1 ? 1 : -1;
-    return { u, w, r: Math.atan2(-Math.sin(a) * dir, -Math.cos(a) * dir) + Math.PI / 2 * 0, pose: "geh", t: /night/i.test(rolle) ? "t_nachtwache" : "t_wache", speer: !/night/i.test(rolle), fackel: /night/i.test(rolle) };
+    return { u, w, r: Math.atan2(-Math.sin(a) * dir, -Math.cos(a) * dir) + Math.PI / 2 * 0, pose: "geh", t: /night/i.test(rolle) ? "t_nachtwache" : "t_wache", speer: CFG.nurTag || !/night/i.test(rolle), fackel: !CFG.nurTag && /night/i.test(rolle) };
   }
   const zustand = (p, s) => {   // -> { u, w, r, pose, t } oder null (drinnen)
     if (WACHEN.includes(p.h)) return wache(p, s);
@@ -1583,7 +1586,7 @@ function schleife(ts) {
     K.b = z.von.b + (z.b - z.von.b) * e + Math.sin(p * Math.PI) * 10; if (p >= 1) K.ziel = null; }
   const t = ts / 1000, std = ZEIT.sek() / 3600, ng = Math.min(.92, nachtGrad(std));
   bewegen(c, t, ng, NS * (WETTER === "nebel" ? .8 : 1), 2);   // 18.10.: Feuerschatten (Wuerfel = 6 Durchgaenge) tags gar nicht, nachts jedes 4. Bild neu
-  FEUERSCHATTEN = (FEUERSCHATTEN + 1) % 4; for (const f of c.FEUER) { f.pl.shadow.autoUpdate = false; if (ng > .35 && FEUERSCHATTEN === 0 || FPS.n < 2) f.pl.shadow.needsUpdate = true; } leben(t); ALLTAG.tick(ZEIT.sek(), t); ansicht(); NIED?.tick(t); renderer.render(c.scene, cam); schilder(); FPS.n++;
+  FEUERSCHATTEN = (FEUERSCHATTEN + 1) % 4; for (const f of c.FEUER) { f.pl.shadow.autoUpdate = false; if (ng > .35 && FEUERSCHATTEN === 0 || FPS.n < 2) f.pl.shadow.needsUpdate = true; } leben(t); ALLTAG.tick(tagSek(ZEIT.sek()), t); ansicht(); NIED?.tick(t); renderer.render(c.scene, cam); schilder(); FPS.n++;
   if (ts - (UHR_T || 0) > 10000) { UHR_T = ts; uhrText(); }
   { const e = K.b > 80; if (LOD.stand !== e) { LOD.stand = e; LOD.detail.forEach(m => m.visible = !e); LOD.einfach.forEach(m => m.visible = e); } }   // ferne Viertel: einfach beim Herauszoomen
   LEISTUNG.n++; if (ts - LEISTUNG.t0 > 3000) { const fps = LEISTUNG.n * 1000 / (ts - LEISTUNG.t0); LEISTUNG.t0 = ts; LEISTUNG.n = 0; LEISTUNG.letzt = fps;   // schwache Bildrate: Niederschlag aus
