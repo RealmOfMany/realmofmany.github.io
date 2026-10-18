@@ -762,6 +762,17 @@ const BAUTEN = {
     for (const [x, z, w, d] of [[0, -a, 2 * a, .04], [0, a, 2 * a, .04], [-a, 0, .04, 2 * a], [a, 0, .04, 2 * a]]) g.add(box(w, .04, d, mat(0xe8dcc0), x, .7, z));
     const sch = box(.9, .6, .07, mat(0xd9b77a), a - .3, .85, a + .5); g.add(sch); g.add(box(.1, .9, .1, mat("stamm"), a - .3, .45, a + .45));
     return g; },
+  gemeinschaftsfeld() {   // 18.10. Upgrade Tag 3: gemeinsames Feld — gepfluegt, erste Saatreihen, niedriger Zaun (ca. 22 x 16 m)
+    const g = new THREE.Group(), lx = 22, lz = 16;
+    g.add(box(lx, .08, lz, mat("acker"), 0, .02, 0));
+    for (let i = 0; i < 14; i++) g.add(box(lx * .94, .12, .32, mat(i % 2 ? "ackerHell" : "erdeDunkel"), 0, .08, -lz / 2 + (i + .5) * lz / 14));
+    for (let i = 0; i < 5; i++) for (let k = 0; k < 18; k++) g.add(box(.22, .28, .22, mat(0x6f9a3e), -lx * .45 + k * lx * .9 / 17, .2, -lz / 2 + (i + .5) * lz / 14));   // erste Saatreihen
+    const pf = (x, z) => g.add(box(.14, .8, .14, mat("holzDunkel"), x, .4, z));
+    for (let k = 0; k <= 11; k++) { const x = -lx / 2 - .4 + k * (lx + .8) / 11; pf(x, -lz / 2 - .4); pf(x, lz / 2 + .4); }
+    for (let k = 1; k < 8; k++) { const z = -lz / 2 - .4 + k * (lz + .8) / 8; pf(-lx / 2 - .4, z); pf(lx / 2 + .4, z); }
+    for (const sz of [-1, 1]) { g.add(box(lx + .8, .08, .06, mat("holz"), 0, .62, sz * (lz / 2 + .4))); }
+    for (const sx of [-1, 1]) { g.add(box(.06, .08, lz + .8, mat("holz"), sx * (lx / 2 + .4), .62, 0)); }
+    return g; },
   bruecke() {   // 18.10. Stadtplan: Holzbruecke ueber den Bach (quer zum Fluss, Laengsachse = z), Deck auf Hoehe 0
     const g = new THREE.Group(), L = 10, B = 2.6;
     for (let i = 0; i < 16; i++) { const p = box(B, .16, L / 16 - .04, mat(i % 2 ? "holz" : "holzDunkel"), 0, .3, -L / 2 + (i + .5) * L / 16); g.add(p); }
@@ -919,7 +930,7 @@ for (const gd of W_GEB) { const g = BAUTEN[gd.typ] ? BAUTEN[gd.typ]() : ARBEIT.i
   setze(g, gd.u, gd.w, gd.rot || 0); if (g.userData.festeHoehe !== undefined) g.position.y = g.userData.festeHoehe; const p = gd.fortschritt ?? 1;
   if (p < 1) { if (g.userData.stufen) bauStufe(g, p); else { g.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(g), hz = bb.min.y + .15 + p * (bb.max.y - bb.min.y);   // Bau waechst von unten
       g.traverse(o => { if (o.isMesh) o.visible = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3()).y < hz; }); } }
-  g.updateMatrixWorld(true); if (g.userData.kamin && p >= 1) EMITTER.push({ g, p: g.userData.kamin.clone() }); SPERRE.push([gd.u, gd.w, 4.8]);
+  g.updateMatrixWorld(true); if (g.userData.kamin && p >= 1) EMITTER.push({ g, p: g.userData.kamin.clone() }); SPERRE.push([gd.u, gd.w, gd.sperre || 4.8]);
   const bb = new THREE.Box3().setFromObject(g); gd.schildP = gd.schildP || new THREE.Vector3(gd.u, Math.max(bb.max.y, hoehe(gd.u, gd.w) + 1.5) + 1.2, -gd.w); }
 for (const bp of W_BP) { setze(BAUTEN.bauplatz(bp.groesse || 3.4), bp.u, bp.w, bp.rot ?? B); SPERRE.push([bp.u, bp.w, (bp.groesse || 3.4) * 2.1]); }
 for (const dk of W_DEKO) { if (!BAUTEN[dk.typ]) continue; setze(BAUTEN[dk.typ](), dk.u, dk.w, R() * 6); SPERRE.push([dk.u, dk.w, 1.4]); }
@@ -1036,7 +1047,8 @@ function alltagBauen() {
   const SITZ = Array.from({ length: MAX }, (_, i) => { const a = (i < 6 ? 40 + 20 * i : -15 - 17 * (i - 6)) * Math.PI / 180, r = i < 6 ? 2.7 : 3.4; return { u: Math.cos(a) * r, w: Math.sin(a) * r }; });
   for (const p of leute) { const b = W_BERUFE[p.h]; p.tuer = { u: p.haus.u + ((p.z >> 4) % 3 - 1) * .6, w: p.haus.w - (p.haus.typ === "langhaus" ? 4.6 : 2.9) };
     const gd = b === "Woodcutter" && W_GEB.find(x => x.typ === "holzfaellerhuette"), dk = b === "Berry gatherer" && W_DEKO.find(x => x.typ === "beerenbusch");
-    p.arbeit = gd ? { u: gd.u + 2.4 + (p.z % 3) * 1.1, w: gd.w - 3.4, pose: "axt", t: "t_arbeit" } : dk ? { u: dk.u + 1.0 + (p.z % 2) * .6, w: dk.w - .9, pose: "pflueck", t: "t_arbeit" }
+    const feld = b === "Farmer" && W_GEB.filter(x => x.typ === "gemeinschaftsfeld").sort((a, c) => Math.hypot(a.u - p.haus.u, a.w - p.haus.w) - Math.hypot(c.u - p.haus.u, c.w - p.haus.w))[0];
+    p.arbeit = feld ? { u: feld.u - 6 + (p.z % 5) * 3, w: feld.w - 2 + (p.z % 3), pose: "pflueck", t: "t_arbeit" } : gd ? { u: gd.u + 2.4 + (p.z % 3) * 1.1, w: gd.w - 3.4, pose: "axt", t: "t_arbeit" } : dk ? { u: dk.u + 1.0 + (p.z % 2) * .6, w: dk.w - .9, pose: "pflueck", t: "t_arbeit" }
       : HALLE ? { u: HALLE.u + ((p.z % 5) - 2) * 1.5, w: HALLE.w - 5.2, pose: "rede", t: "t_halle" } : { ...p.tuer, pose: "steh", t: "t_arbeit" };
     p.hin = weg(p.tuer, p.arbeit); p.einzug = NEU.has(p.h);
     p.auf = 6.5 + (p.z % 60) / 60; p.feier = Math.min(ZEIT.unter, 18) - .25 + ((p.z >> 6) % 40) / 60; p.schlaf = 22 + ((p.z >> 9) % 50) / 60;
