@@ -762,6 +762,21 @@ const BAUTEN = {
     for (const [x, z, w, d] of [[0, -a, 2 * a, .04], [0, a, 2 * a, .04], [-a, 0, .04, 2 * a], [a, 0, .04, 2 * a]]) g.add(box(w, .04, d, mat(0xe8dcc0), x, .7, z));
     const sch = box(.9, .6, .07, mat(0xd9b77a), a - .3, .85, a + .5); g.add(sch); g.add(box(.1, .9, .1, mat("stamm"), a - .3, .45, a + .45));
     return g; },
+  grosseschmiede() {   // 18.10.: grosse Schmiede — Steinhaus, offene Werkstatt mit 2 Essen, Blasebalg, 2 Ambosse, Erz + Holz
+    const g = new THREE.Group(), L = 8, T = 5;
+    g.add(box(L + .6, .5, T + 3.6, mat("stein"), 0, .0, .9));
+    const hs = haus({ l: L, b: T, h: 2.6, wand: "stein", dach: "schindel", kamin: false }); g.add(hs);
+    for (const x of [-2.4, 2.4]) { g.add(box(.9, 6.2, .9, mat("steinDunkel"), x, 3.1, -1.2)); EMITTER.push({ g, p: new THREE.Vector3(x, 6.3, -1.2) }); }
+    const dachV = box(L + .4, .14, 3.6, mat("schindel"), 0, 2.5, T / 2 + 1.7); dachV.rotation.x = .18; g.add(dachV);
+    for (const x of [-L / 2, -L / 6, L / 6, L / 2]) g.add(box(.22, 2.4, .22, mat("stamm"), x, 1.2, T / 2 + 3.2));
+    for (const x of [-2.4, 2.4]) { g.add(box(1.4, 1.0, 1.1, mat("stein"), x, .5, T / 2 + 1.0));
+      const gl = new THREE.Mesh(new THREE.BoxGeometry(.9, .06, .7), new THREE.MeshBasicMaterial({ color: 0xff7a2a })); gl.position.set(x, 1.03, T / 2 + 1.0); g.add(gl);
+      const bb = box(.7, .35, .5, mat("holzDunkel"), x - 1.2, .55, T / 2 + 1.0); bb.rotation.z = .3; g.add(bb);   // Blasebalg
+      g.add(box(.45, .5, .3, mat("steinDunkel"), x + .3, .25, T / 2 + 2.5)); g.add(box(.75, .15, .32, mat(0x3a3a40), x + .3, .55, T / 2 + 2.5)); }   // Amboss
+    for (let i = 0; i < 9; i++) { const e = mesh(new THREE.DodecahedronGeometry(rr(.28, .45), 0), mat(i % 3 ? 0x6a6a72 : 0x8a5a3a)); e.position.set(-L / 2 - 1.3 + rr(-.6, .6), .25 + (i > 5 ? .35 : 0), T / 2 + rr(-.6, 2.2)); g.add(e); }   // Erzhaufen
+    const hz = holzstapel(3); hz.position.set(L / 2 + 1.4, 0, T / 2 + 1.2); hz.rotation.y = Math.PI / 2; g.add(hz);
+    g.add(box(1.6, .5, .6, mat("holz"), 0, .25, T / 2 + 3.6));   // Wassertrog
+    return g; },
   gemeinschaftsfeld() {   // 18.10. Upgrade Tag 3: gemeinsames Feld — gepfluegt, erste Saatreihen, niedriger Zaun (ca. 22 x 16 m)
     const g = new THREE.Group(), lx = 22, lz = 16;
     g.add(box(lx, .08, lz, mat("acker"), 0, .02, 0));
@@ -931,8 +946,9 @@ for (const gd of W_GEB) { const g = BAUTEN[gd.typ] ? BAUTEN[gd.typ]() : ARBEIT.i
   if (p < 1) { if (g.userData.stufen) bauStufe(g, p); else { g.updateMatrixWorld(true); const bb = new THREE.Box3().setFromObject(g), hz = bb.min.y + .15 + p * (bb.max.y - bb.min.y);   // Bau waechst von unten
       g.traverse(o => { if (o.isMesh) o.visible = new THREE.Box3().setFromObject(o).getCenter(new THREE.Vector3()).y < hz; }); } }
   g.updateMatrixWorld(true); if (g.userData.kamin && p >= 1) EMITTER.push({ g, p: g.userData.kamin.clone() }); SPERRE.push([gd.u, gd.w, gd.sperre || 4.8]);
-  if (gd.typ === "schmiede") g.traverse(o => { if (o.isMesh && o.material.isMeshBasicMaterial && o.material.color.getHex() === 0xff7a2a) {   // 18.10.: Glut der Esse leuchtet
-    const q = o.getWorldPosition(new THREE.Vector3()); GLANZ.push({ sp: glanz(q.clone().add(new THREE.Vector3(0, .25, 0)), 0xff8a30, 2.6, .5), tag: .55, nacht: .9 }); gd.esse = { u: q.x, w: -q.z }; } });
+  if (gd.typ === "schmiede" || gd.typ === "grosseschmiede") g.traverse(o => { if (o.isMesh && o.material.isMeshBasicMaterial && o.material.color.getHex() === 0xff7a2a) {   // 18.10.: Glut der Esse(n) leuchtet
+    const q = o.getWorldPosition(new THREE.Vector3()); GLANZ.push({ sp: glanz(q.clone().add(new THREE.Vector3(0, .25, 0)), 0xff8a30, 2.6, .5), tag: .55, nacht: .9 });
+    gd.esse = gd.esse || { u: q.x, w: -q.z }; (gd.essen = gd.essen || []).push({ u: q.x, w: -q.z }); } });
   const bb = new THREE.Box3().setFromObject(g); gd.schildP = gd.schildP || new THREE.Vector3(gd.u, Math.max(bb.max.y, hoehe(gd.u, gd.w) + 1.5) + 1.2, -gd.w); }
 for (const bp of W_BP) { setze(BAUTEN.bauplatz(bp.groesse || 3.4), bp.u, bp.w, bp.rot ?? B); SPERRE.push([bp.u, bp.w, (bp.groesse || 3.4) * 2.1]); }
 for (const dk of W_DEKO) { if (!BAUTEN[dk.typ]) continue; setze(BAUTEN[dk.typ](), dk.u, dk.w, R() * 6); SPERRE.push([dk.u, dk.w, 1.4]); }
