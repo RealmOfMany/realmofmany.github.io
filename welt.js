@@ -1227,6 +1227,44 @@ if (SAISON.laub) { const n = 64, im = new THREE.InstancedMesh(new THREE.Icosahed
     im.setMatrixAt(k, m4); im.setColorAt(k, cl.setHex(pick([PAL.laub2, PAL.laub3, 0x8a5a2a]))); k++; }
   im.count = k; im.receiveShadow = true; scene.add(im); }
 const ALLTAG = alltagBauen();
+// ==== Welt huebscher (18.10. 21:40 live): a Boden + d Wasser/Natur immer; c Licht nur per ?licht=c (Test); b nicht. ?huebsch=… zum Vergleichen
+{ const HV = P.has("huebsch") ? P.get("huebsch") : "ad" + (P.get("licht") === "c" ? "c" : ""), M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S3 = new THREE.Vector3(), E = new THREE.Euler();
+  const HG = new Map(), hk = (u, w) => `${Math.floor(u / 6)},${Math.floor(w / 6)}`; for (const l of LAGE) { const k = hk(l.u, l.w); if (!HG.has(k)) HG.set(k, []); HG.get(k).push(l); }
+  const nahHuette = (u, w, r) => { const i = Math.floor(u / 6), j = Math.floor(w / 6); for (let a = -1; a <= 1; a++) for (let b = -1; b <= 1; b++) for (const l of HG.get(`${i + a},${j + b}`) || []) if (Math.hypot(l.u - u, l.w - w) < r) return true; return false; };
+  const W_ORTE = [...W_VIERTEL.filter(v => v.offen).map(v => [v.mitte.u, v.mitte.w, v.r * 1.2]), [0, 0, 14], [0, DORF_MITTE_W, 16]].concat(DATEN.dorf2 ? [[DATEN.dorf2.u, DATEN.dorf2.w, 16]] : []);
+  const imDorf = (u, w) => W_ORTE.some(([a, b, r]) => Math.hypot(u - a, w - b) < r);
+  const inst = (geo, m, liste) => { if (!liste.length) return; const im = new THREE.InstancedMesh(geo, m, liste.length); liste.forEach((x, i) => im.setMatrixAt(i, x)); im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im); };
+  const mx = (u, y, w, ry, sx, sy, sz) => M4.clone().compose(V.set(u, y, -w), Q.setFromEuler(E.set(0, ry, 0)), S3.set(sx, sy, sz));
+  const zufall = (n, f) => { const out = []; for (let i = 0; i < n * 6 && out.length < n; i++) { const o = W_ORTE[Math.floor(R() * W_ORTE.length)], a = R() * 6.283, r = Math.sqrt(R()) * o[2], u = o[0] + Math.cos(a) * r, w = o[1] + Math.sin(a) * r; const x = f(u, w); if (x) out.push(x); } return out; };
+  if (HV.includes("a")) {   // a) Boden: Grasbueschel, Wildblumen, Steinchen im Dorf (instanziert, 3 Draw-Calls)
+    const ok = (u, w) => Math.abs(w - flussW(u)) > 3.3 && !aufWeg(u, w, 0) && !nahHuette(u, w, 2.4) && Math.hypot(u, w) > 5;
+    inst(new THREE.ConeGeometry(.12, .42, 4), mat(0x6f8a3a), zufall(16000, (u, w) => ok(u, w) && mx(u, hoehe(u, w) + .15, w, R() * 6, 1 + R(), .7 + R() * .8, 1 + R())));
+    const bl = zufall(3500, (u, w) => ok(u, w) && mx(u, hoehe(u, w) + .2, w, 0, 1, 1, 1)); const blm = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.09, 0), new THREE.MeshStandardMaterial({ roughness: .8 }), Math.max(1, bl.length));
+    const fc = [0xe8d070, 0xd88aa8, 0xf0ece0, 0xa890d8, 0xe07850].map(x => new THREE.Color(x)); bl.forEach((x, i) => { blm.setMatrixAt(i, x); blm.setColorAt(i, fc[i % fc.length]); }); scene.add(blm);
+    inst(new THREE.DodecahedronGeometry(.16, 0), mat("stein"), zufall(2500, (u, w) => ok(u, w) && mx(u, hoehe(u, w) + .05, w, R() * 6, 1 + R(), .5, 1 + R()))); }
+  if (HV.includes("b")) {   // b) Haeuser belebt: Fass/Kiste/Bank/Blumenkasten/Waescheleine an jeder Huette (instanziert)
+    const fass = [], kiste = [], bank = [], blumen = [], leine = [], tuch = [];
+    for (const l of LAGE) { if (l.typ === "langhaus") continue; const z = (Math.abs(Math.round(l.u * 7 + l.w * 13)) % 5), u = l.u + (z % 2 ? 1.7 : -1.7), w = l.w - 2.2, y = hoehe(u, w);
+      if (z === 0 || z === 3) fass.push(mx(u, y + .35, w, 0, 1, 1, 1)); if (z === 1) kiste.push(mx(u, y + .25, w, R(), 1, 1, 1)); if (z === 2 || z === 4) bank.push(mx(l.u, hoehe(l.u, l.w - 2.4) + .22, l.w - 2.4, 0, 1, 1, 1));
+      blumen.push(mx(l.u + .9, hoehe(l.u, l.w) + .75, l.w - 2.05, 0, 1, 1, 1));
+      if (z === 4) { const lu = l.u + 2.6; leine.push(mx(lu, hoehe(lu, l.w) + 1.4, l.w, Math.PI / 2, 1, 1, 1)); for (let k = 0; k < 3; k++) tuch.push(mx(lu, hoehe(lu, l.w) + 1.15, l.w - .8 + k * .8, Math.PI / 2, 1, 1, 1)); } }
+    inst(new THREE.CylinderGeometry(.3, .3, .7, 8), mat("holzDunkel"), fass); inst(new THREE.BoxGeometry(.5, .5, .5), mat("holz"), kiste); inst(new THREE.BoxGeometry(1.4, .1, .35), mat("holz"), bank);
+    const bm = new THREE.InstancedMesh(new THREE.BoxGeometry(.8, .16, .2), new THREE.MeshStandardMaterial({ color: 0xd06a7a, roughness: .8 }), Math.max(1, blumen.length)); blumen.forEach((x, i) => { bm.setMatrixAt(i, x); bm.setColorAt(i, new THREE.Color([0xd06a7a, 0xe8c050, 0xb090e0][i % 3])); }); scene.add(bm);
+    inst(new THREE.BoxGeometry(2.6, .03, .03), mat(0xe8dcc0), leine); const tm = new THREE.InstancedMesh(new THREE.BoxGeometry(.6, .5, .03), new THREE.MeshStandardMaterial({ roughness: .9, side: THREE.DoubleSide }), Math.max(1, tuch.length)); tuch.forEach((x, i) => { tm.setMatrixAt(i, x); tm.setColorAt(i, new THREE.Color([0xf0ece0, 0x8aa0c8, 0xc87a6a][i % 3])); }); scene.add(tm); }
+  if (HV.includes("c")) {   // c) Licht/Stimmung: filmischer Tonwert, warmes Licht, weiche Vignette
+    renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.18; document.getElementById("c").style.filter = "saturate(1.12) contrast(1.05) sepia(.06)";
+    const vg = document.createElement("div"); vg.style.cssText = "position:fixed;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 45%, rgba(0,0,0,0) 55%, rgba(40,25,10,.38) 100%);z-index:1"; document.body.appendChild(vg);
+    c.sonne.color.setHex(0xffd49a); }
+  if (HV.includes("d")) {   // d) Wasser/Natur: Schilf + Seerosen am Ufer, Wasser glaenzt, Enten
+    const schilf = [], rosen = [], enten = [];
+    for (let u = FLUSS.u0; u < -FLUSS.u0; u += .7) { const m = flussW(u); if (!imDorf(u, m) && R() > .25) continue;
+      for (const sg of [-1, 1]) if (R() < .55) { const w = m + sg * (2.5 + R() * .8); if (!aufWeg(u, w, 0)) for (let k = 0; k < 3; k++) schilf.push(mx(u + R() * .5, flussY(u) + .45, w + R() * .3, R() * 6, 1, .8 + R() * .7, 1)); }
+      if (R() < .08) rosen.push(mx(u, flussY(u) + .02, m + (R() - .5) * 3, R() * 6, 1, 1, 1)); if (R() < .006) enten.push(mx(u, flussY(u) + .12, m + (R() - .5) * 2, R() * 6, 1, 1, 1)); }
+    inst(new THREE.CylinderGeometry(.03, .05, 1.0, 4), mat(0x7a8a3a), schilf); inst(new THREE.CylinderGeometry(.35, .35, .03, 8), mat(0x4f7a3a), rosen);
+    inst(new THREE.SphereGeometry(.22, 6, 4), mat(0x8a6a3a), enten);
+    if (FLUSS.mesh) { FLUSS.mesh.material.roughness = .12; FLUSS.mesh.material.metalness = .25; FLUSS.mesh.material.color.offsetHSL(0, .06, .04); } }
+}
+
 scene.updateMatrixWorld(true);   // 18.10.: Rauch nur Feuer + 10 Kamine nahe der Dorfmitte (jeder Rauch = 10 Sprites = 10 Draw-Calls)
 EMITTER = [...EMITTER.filter(e => e.feuer), ...EMITTER.filter(e => !e.feuer).map(e => ({ e, d: e.g.localToWorld(e.p.clone()).distanceTo(new THREE.Vector3(0, 0, -DORF_MITTE_W)) }))
   .sort((a, b) => a.d - b.d).slice(0, 10).map(x => x.e)];
