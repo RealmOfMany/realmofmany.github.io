@@ -38,6 +38,9 @@
   .schild.arbeit{background:#3f5a30;border-color:#c9a04a}
   .schild.an{background:#c9822c;color:#fff;border-color:#ffe6a0;font-size:14px;padding:4px 10px;box-shadow:0 0 18px 6px rgba(255,190,80,.85);animation:gluehen 1.4s ease-in-out infinite;z-index:2}
   @keyframes gluehen{50%{box-shadow:0 0 30px 12px rgba(255,200,90,1)}}
+  #namen{position:fixed;right:12px;bottom:calc(120px + env(safe-area-inset-bottom));min-height:46px;padding:0 16px;border-radius:23px;border:1.5px solid #8a6a3c;
+    background:rgba(253,246,228,.95);color:#2a2118;font:600 15px Georgia,serif;box-shadow:0 3px 10px rgba(50,30,10,.25);z-index:5}
+  #namen[aria-pressed="false"]{background:#4a3020;color:#fbefd6;border-color:#c9a04a}
   #laden{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px;color:#5c4526;background:#e7e0cc;transition:opacity .6s}
 </style>
 </head>
@@ -50,6 +53,7 @@
   <div id="meldung"></div>
   <div id="optout">Every follower gets a house. Don't want your house shown? DM us.</div>
 </div>
+<button id="namen" type="button" aria-pressed="true">Names: on</button>
 <div id="laden">The fog is lifting…</div>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
 <script type="module">

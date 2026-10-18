@@ -1239,8 +1239,14 @@ const RAND = 6, LUFT = 3, KARTEN = [document.getElementById("kopf"), document.ge
 const AUSWEICH = [[0, 0], [0, -1], [-.55, 0], [.55, 0], [-.55, -1], [.55, -1], [0, 1], [0, -2], [-1.1, 0], [1.1, 0], [-.55, 1], [.55, 1]];
 const schneidet = (a, b) => a.x < b.x + b.w + LUFT && b.x < a.x + a.w + LUFT && a.y < b.y + b.h + LUFT && b.y < a.y + a.h + LUFT;
 window.__schilder = () => SCH.filter(s => s.d.style.display === "block").map(s => { const r = s.d.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height, t: s.d.textContent, an: s === markiert }; });
+// ---- Namen an/aus (Vorschau 18.10.): aus = beim Ranzoomen keine Namensschilder; die Suche zeigt das gesuchte Haus trotzdem. Zustand im Browser gemerkt.
+let NAMENSCHILDER = true; try { NAMENSCHILDER = localStorage.getItem("realm-namen") !== "aus"; } catch (e) {}
+{ const k = document.getElementById("namen"); const setz = () => { if (k) { k.textContent = NAMENSCHILDER ? "Names: on" : "Names: off"; k.setAttribute("aria-pressed", String(NAMENSCHILDER)); } };
+  setz(); if (k) k.addEventListener("click", () => { NAMENSCHILDER = !NAMENSCHILDER; try { localStorage.setItem("realm-namen", NAMENSCHILDER ? "an" : "aus"); } catch (e) {} setz(); }); }
+window.__namen = an => { NAMENSCHILDER = an; };
+{ const k = document.getElementById("namen"); if (k) KARTEN.push(k); }   // Schilder weichen dem Knopf aus
 function schilder() {
-  const nah = K.b < 42, W = innerWidth, H = innerHeight, kand = [];
+  const nah = K.b < 42 && NAMENSCHILDER, W = innerWidth, H = innerHeight, kand = [];
   if (FIGURSCHILD.l.slot?.z) FIGURSCHILD.l.dach.setFromMatrixPosition(FIGURSCHILD.l.slot.kopf.matrixWorld).y += 1.2;
   for (const s of SCH) { const fig = s === FIGURSCHILD, an = s === markiert || fig; v.copy(s.l.dach).project(cam);
     const im = v.z < 1 && v.x > -1.05 && v.x < 1.05 && v.y > -1.05 && v.y < 1.05;
