@@ -1107,7 +1107,7 @@ fertig(c);
 // ---- Bewohner-Alltag (17.10.): echte Bewohner nach deutscher Uhrzeit — morgens raus, tagsueber am Beruf, abends am Feuer, nachts drinnen.
 // Alle Besucher sehen dasselbe (Uhrzeit + Handle). Hoechstens 12 gleichzeitig; alle Figuren zusammen 7 Draw-Calls (InstancedMesh). Nur echte Bewohner (Followerliste).
 function alltagBauen() {
-  const MAX = 12, hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
+  const MAX = 24, hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
   const HALLE = LAGE.find(l => l.typ === "langhaus"), NEU = new Set(DATEN.neu || []);
   const ROLLE = new Set((DATEN.figuren || []).filter(f => f.typ === "katze").map(f => f.handle));   // als Katze unterwegs, nicht zusaetzlich als Mensch
   const leute = LAGE.filter(l => l.bewohner.length).flatMap(l => l.bewohner.filter(h => !ROLLE.has(h)).map(h => ({ h, haus: l, z: hash(h) })));
@@ -1118,9 +1118,13 @@ function alltagBauen() {
   const SITZ = Array.from({ length: MAX }, (_, i) => { const a = (i < 6 ? 40 + 20 * i : -15 - 17 * (i - 6)) * Math.PI / 180, r = i < 6 ? 2.7 : 3.4; return { u: Math.cos(a) * r, w: Math.sin(a) * r }; });
   for (const p of leute) { const b = W_BERUFE[p.h]; p.tuer = { u: p.haus.u + ((p.z >> 4) % 3 - 1) * .6, w: p.haus.w - (p.haus.typ === "langhaus" ? 4.6 : 2.9) };
     const gd = b === "Woodcutter" && W_GEB.find(x => x.typ === "holzfaellerhuette"), dk = b === "Berry gatherer" && W_DEKO.find(x => x.typ === "beerenbusch");
-    const esse = b === "Blacksmith" && W_GEB.find(x => x.typ === "schmiede" && x.esse);
-    const feld = b === "Farmer" && W_GEB.filter(x => x.typ === "gemeinschaftsfeld").sort((a, c) => Math.hypot(a.u - p.haus.u, a.w - p.haus.w) - Math.hypot(c.u - p.haus.u, c.w - p.haus.w))[0];
-    p.arbeit = esse ? { u: esse.esse.u + .9, w: esse.esse.w + 1.1, pose: "axt", t: "t_arbeit" } : feld ? { u: feld.u - 6 + (p.z % 5) * 3, w: feld.w - 2 + (p.z % 3), pose: "pflueck", t: "t_arbeit" } : gd ? { u: gd.u + 2.4 + (p.z % 3) * 1.1, w: gd.w - 3.4, pose: "axt", t: "t_arbeit" } : dk ? { u: dk.u + 1.0 + (p.z % 2) * .6, w: dk.w - .9, pose: "pflueck", t: "t_arbeit" }
+    const ort = (DATEN.arbeitsorte || {})[p.h], og = ort && W_GEB.find(x => x.id === ort);   // 18.10.: fester Arbeitsplatz (welche Schmiede / welches Feld)
+    const istSchmied = /smith/i.test(b || ""), istFarmer = /farmer|shepherd/i.test(b || "");
+    const esse = istSchmied && (og && (og.esse || og.essen) ? og : W_GEB.find(x => x.typ === "schmiede" && x.esse));
+    const nr = Object.keys(W_BERUFE).filter(h => (DATEN.arbeitsorte || {})[h] === ort).indexOf(p.h);
+    const feld = istFarmer && og && og.typ === "gemeinschaftsfeld" ? og : istFarmer && W_GEB.filter(x => x.typ === "gemeinschaftsfeld").sort((a, c) => Math.hypot(a.u - p.haus.u, a.w - p.haus.w) - Math.hypot(c.u - p.haus.u, c.w - p.haus.w))[0];
+    const ep = esse && (esse.essen ? esse.essen[Math.max(0, nr) % esse.essen.length] : esse.esse);
+    p.arbeit = esse ? { u: ep.u + .9 + Math.max(0, nr) * .7, w: ep.w + 1.1 + (Math.max(0, nr) % 2) * .8, pose: "axt", t: "t_arbeit" } : feld ? { u: feld.u - 5 + Math.max(0, nr) * 7 + (p.z % 3) * .5, w: feld.w - 2 + (Math.max(0, nr) % 2) * 2.5, pose: "pflueck", t: "t_arbeit" } : gd ? { u: gd.u + 2.4 + (p.z % 3) * 1.1, w: gd.w - 3.4, pose: "axt", t: "t_arbeit" } : dk ? { u: dk.u + 1.0 + (p.z % 2) * .6, w: dk.w - .9, pose: "pflueck", t: "t_arbeit" }
       : HALLE ? { u: HALLE.u + ((p.z % 5) - 2) * 1.5, w: HALLE.w - 5.2, pose: "rede", t: "t_halle" } : { ...p.tuer, pose: "steh", t: "t_arbeit" };
     p.hin = weg(p.tuer, p.arbeit); p.einzug = NEU.has(p.h);
     p.auf = 6.5 + (p.z % 60) / 60; p.feier = Math.min(ZEIT.unter, 18) - .25 + ((p.z >> 6) % 40) / 60; p.schlaf = 22 + ((p.z >> 9) % 50) / 60;
