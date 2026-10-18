@@ -769,7 +769,7 @@ const BAUTEN = {
     for (const [x, z, w, d] of [[0, -a, 2 * a, .04], [0, a, 2 * a, .04], [-a, 0, .04, 2 * a], [a, 0, .04, 2 * a]]) g.add(box(w, .04, d, mat(0xe8dcc0), x, .7, z));
     const sch = box(.9, .6, .07, mat(0xd9b77a), a - .3, .85, a + .5); g.add(sch); g.add(box(.1, .9, .1, mat("stamm"), a - .3, .45, a + .45));
     return g; },
-  taverne() {   // 18.10.: Taverne — Fachwerk, Wirtshausschild mit Krug, Faesser, Tische + Baenke draussen, Fenster leuchten abends
+  taverne(gd = {}) {   // 18.10.: Taverne — Fachwerk, Wirtshausschild mit Krug, Faesser, Tische + Baenke draussen, Fenster leuchten abends
     const g = new THREE.Group(); const h = haus({ l: 7.2, b: 5.0, h: 2.7, wand: "fachwerk", dach: "stroh", kamin: true, licht: true }); g.add(h);
     const arm = box(1.2, .1, .1, mat("holzDunkel"), 3.9, 2.6, 2.7); g.add(arm); const tafel = box(.08, .7, .9, mat(0xc9a04a), 4.4, 2.15, 2.7); g.add(tafel);
     const krug = mesh(new THREE.CylinderGeometry(.18, .16, .32, 8), mat(0xe8dcc0)); krug.position.set(4.46, 2.15, 2.7); g.add(krug);
@@ -778,7 +778,7 @@ const BAUTEN = {
       for (const dz of [-.85, .85]) { g.add(box(2.0, .08, .32, mat("holz"), x, .46, 4.2 + dz)); g.add(box(.1, .44, .28, mat("holzDunkel"), x, .22, 4.2 + dz)); }
       for (const dx of [-.5, .5]) { const k = mesh(new THREE.CylinderGeometry(.07, .06, .16, 7), mat(0xe8dcc0)); k.position.set(x + dx, .91, 4.2); g.add(k); } }
     g.userData.sitze = [[-2.5, 3.35], [-1.1, 3.35], [-2.5, 5.05], [-1.1, 5.05], [1.1, 3.35], [2.5, 3.35], [1.1, 5.05], [2.5, 5.05]];
-    return g; },
+    if (gd.klein) g.scale.setScalar(.82); return g; },
   grosseschmiede() {   // 18.10.: grosse Schmiede — Steinhaus, offene Werkstatt mit 2 Essen, Blasebalg, 2 Ambosse, Erz + Holz
     const g = new THREE.Group(), L = 8, T = 5;
     g.add(box(L + .6, .5, T + 3.6, mat("stein"), 0, .0, .9));
@@ -815,6 +815,10 @@ const BAUTEN = {
     for (let r = 0; r < 3; r++) for (let k = 0; k < 5; k++) { const k_ = mesh(new THREE.IcosahedronGeometry(.2 + R() * .08, 0), mat(r === 1 ? "laub2" : "laub")); k_.position.set(-1.2 + k * .6, .22, -.75 + r * .75); k_.scale.y = .7; g.add(k_); }
     for (const [x, z, l, ry] of [[0, 1.35, 3.6, 0], [0, -1.35, 3.6, 0], [1.75, 0, 2.7, Math.PI / 2], [-1.75, .45, 1.8, Math.PI / 2]]) { const f = box(l, .45, .07, mat("holz"), x, .25, z); f.rotation.y = ry; g.add(f); }
     return g; },
+  wachposten() { const g = new THREE.Group();   // 19.10.: kleiner Torposten am Hauptweg (Dorf 2/3)
+    for (const [x, z] of [[-.9, -.9], [.9, -.9], [-.9, .9], [.9, .9]]) g.add(box(.18, 2.4, .18, mat("stamm"), x, 1.2, z));
+    g.add(box(2.3, .14, 2.3, mat("holz"), 0, .3, 0)); const d = pyramide(1.75, 1.0, mat("schindel")); d.position.y = 2.4; g.add(d);
+    g.add(box(.08, 3.6, .08, mat("holzDunkel"), 1.3, 1.8, 0)); g.add(box(.7, .45, .03, mat(0xb03a2e), 1.65, 3.2, 0)); return g; },
   holzturm(gd) {   // 18.10. abends: Holz-Wachturm (Turmplatz), oben steht die Turmwache
     const g = TYPEN.wachturm({ holz: true }), H = 6;
     if (gd.wache) { const m = new THREE.Group(), y0 = 1 + H + .11, tuch = mat([0x5b4a3a, 0x3f5a6a, 0x6a3f3a, 0x4a5a32][(gd.wache.length) % 4]);   // eigene kleine Figur (mensch() wird vom Alltag gesteuert)
@@ -1177,7 +1181,7 @@ const LEBEN = { rehe: [], hasen: [], voegel: [], laeufer: [], wurzeln: [] };
 for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
   const C = gd.c, PR = gd.r, N = gd.n, PP = [], SEILE = new THREE.Group(); scene.add(SEILE);
   const RAD = gd.radien ? (deg => { const d = ((deg % 360) + 360) % 360, k = Math.floor(d), f = d - k; return gd.radien[k % 360] * (1 - f) + gd.radien[(k + 1) % 360] * f; }) : () => PR;   // 18.10. abends: Radius je Winkel (aeussere Palisade um ganz Dorf 1)
-  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5 };
+  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8 };
   const ARC = [];   // 18.10. abends: Pfaehle nach Bogenlaenge verteilen (bei Radius je Winkel sonst Loecher an Ausbuchtungen)
   if (gd.radien) { let L = 0, q = null; for (let k = 0; k <= 4000; k++) { const deg = gd.von_grad + (gd.bis_grad - gd.von_grad) * k / 4000, a = deg * Math.PI / 180, p = { u: C.u + Math.cos(a) * RAD(deg) * (gd.su || 1), w: C.w + Math.sin(a) * RAD(deg) * (gd.sw || 1), deg };
       if (q) L += Math.hypot(p.u - q.u, p.w - q.w); p.L = L; ARC.push(p); q = p; } }
@@ -1443,6 +1447,23 @@ const WALD = (() => {
   for (const dk of W_DEKO) if (dk.typ === "baum") { [dk.u, dk.w] = wegFrei(dk.u, dk.w, 1); WALD.baum(R() < .25 ? "tanne" : "laub", rr(.9, 1.2), dk.u, dk.w, R() * 6, false); SPERRE.push([dk.u, dk.w, 1.2]); n++; }   // 18.10. abends: Baeume am Platz von Dorf 2
   window.__waldbaeume = n; }
 window.__baeume = WALD.fertig();
+// ---- Weite Sicht (19.10. 00:30): Nebel jenseits des Waldes (Fog of War, waechst mit der Welt) + breiterer Bach/Hauptstrassen beim weiten Herauszoomen
+const FERN = { teile: [], an: null };
+{ const pk = [[0, 0, 20], ...VOFFEN.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...DOERFER.map(d => [d.u, d.w, 260]), ...(DATEN.flaechen || []).filter(f => f.art === "landschaft").map(f => [f.u, f.w, 60])];
+  const RAND = 125, U0 = Math.min(...pk.map(p => p[0] - p[2])) - RAND, U1 = Math.max(...pk.map(p => p[0] + p[2])) + RAND, W0 = Math.min(...pk.map(p => p[1] - p[2])) - RAND, W1 = Math.max(...pk.map(p => p[1] + p[2])) + RAND;
+  const cu = (U0 + U1) / 2, cw = (W0 + W1) / 2, au = (U1 - U0) / 2, aw = (W1 - W0) / 2;
+  const g = new THREE.PlaneGeometry(TER * 2.2, TER * 2.2, 1, 1); g.rotateX(-Math.PI / 2);
+  const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, fog: false, uniforms: { farbe: { value: new THREE.Color(NEBEL_TAG) }, mitte: { value: new THREE.Vector2(cu, cw) }, achse: { value: new THREE.Vector2(au, aw) } },
+    vertexShader: "varying vec2 vp; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vp = vec2(w.x, -w.z); gl_Position = projectionMatrix * viewMatrix * w; }",
+    fragmentShader: "uniform vec3 farbe; uniform vec2 mitte; uniform vec2 achse; varying vec2 vp; void main(){ vec2 q = abs((vp - mitte) / achse); float d = pow(pow(q.x, 4.0) + pow(q.y, 4.0), 0.25); float a = smoothstep(0.93, 1.12, d); gl_FragColor = vec4(farbe, a * 0.97); }" });
+  const nebel = new THREE.Mesh(g, m); nebel.position.set(cu, 9, -cw); nebel.renderOrder = 8; nebel.frustumCulled = false; scene.add(nebel); window.__nebelrand = { cu, cw, au, aw };
+  // breiter Bach + Hauptstrassen nur in der weiten Sicht (sonst unsichtbar)
+  const band = (pts, halb, farbe, y0) => { const pos = [], idx = []; pts.forEach(([u, w, y], i) => { const p = pts[Math.max(0, i - 1)], q = pts[Math.min(pts.length - 1, i + 1)]; let tu = q[0] - p[0], tw = q[1] - p[1]; const l = Math.hypot(tu, tw) || 1; tu /= l; tw /= l;
+      pos.push(u - tw * halb, y + y0, -(w + tu * halb), u + tw * halb, y + y0, -(w - tu * halb)); if (i) { const k = (i - 1) * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); } });
+    const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
+    const mm = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: farbe, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })); mm.visible = false; mm.renderOrder = 2; scene.add(mm); FERN.teile.push(mm); };
+  const fl = []; for (let i = 0; i < FLUSS.y.length; i += 2) { const u = FLUSS.u0 + i * FLUSS.schritt; fl.push([u, flussW(u), FLUSS.y[i]]); } band(fl, 6.5, PAL.wasser, .06);
+  for (const wg of W_WEGE.filter(x => x.art === "strasse")) band(wg.linie.filter((p, i) => i % 2 === 0 || i === wg.linie.length - 1).filter(p => Math.abs(p[1] - flussW(p[0])) > 3).map(p => [p[0], p[1], hoehe(p[0], p[1])]), 4.5, PAL.erde, .12); }
 // ---- Tiere ueberall (18.10. 22 Uhr): Huehner + Katzen an Huetten in allen Vierteln und Dorf 2, Rehe/Fuechse/Hasen am Waldrand und auf Lichtungen.
 // Alle instanziert (je Tierart + Material ein Draw-Call), nie im Wasser oder auf Wegen. Die Tiere der Mitte bleiben wie sie sind.
 const TIERE = { n: {} };
@@ -1475,7 +1496,7 @@ if (CFG.tiere) { const RT = rng(90210), rr2 = (a, b) => a + RT() * (b - a), M4 =
     else if (x < .9) hasen.push([u, w, RT() * 6.283, 1]); else fuechse.push([u, w, RT() * 6.283, 1]); }
   art("rehe", () => reh(false), rehe, true); art("hasen", hase, hasen); art("fuechse", fuchs, fuechse, true);
   window.__tiere = () => TIERE.n; }
-const GEB_R = { weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5 };
+const GEB_R = { weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8 };
 window.__inventar = () => { let pf = 0; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "CylinderGeometry") pf++; });
   return { fluss: FLUSS.mesh ? FLUSS.y.length : 0, baeume: window.__waldbaeume || 0, baum_teile: window.__baeume || 0, huetten: LAGE.length,
     huetten_im_wasser: LAGE.filter(l => Math.abs(l.w - flussW(l.u)) < 2.6).length,
@@ -1558,6 +1579,7 @@ function alltagBauen() {
     p.arbeit = esse ? { u: ep.u + .9 + Math.max(0, nr) * .7, w: ep.w + 1.1 + (Math.max(0, nr) % 2) * .8, pose: "axt", t: "t_arbeit" } : feld ? { u: feld.u - 5 + Math.max(0, nr) * 7 + (p.z % 3) * .5, w: feld.w - 2 + (Math.max(0, nr) % 2) * 2.5, pose: "pflueck", t: "t_arbeit" } : gd ? { u: gd.u + 2.4 + (p.z % 3) * 1.1, w: gd.w - 3.4, pose: "axt", t: "t_arbeit" } : dk ? { u: dk.u + 1.0 + (p.z % 2) * .6, w: dk.w - .9, pose: "pflueck", t: "t_arbeit" }
       : og ? { u: og.u + 2.5 + Math.max(0, nr) * 1.2, w: og.w - 3.9, pose: istSchmied ? "axt" : "rede", t: "t_arbeit" }
       : HALLE ? { u: HALLE.u + ((p.z % 5) - 2) * 1.5, w: HALLE.w - 5.2, pose: "rede", t: "t_halle" } : { ...p.tuer, pose: "steh", t: "t_arbeit" };
+    if (Math.hypot(p.arbeit.u - p.tuer.u, p.arbeit.w - p.tuer.w) > 200) p.tuer = { u: p.arbeit.u + 1.5, w: p.arbeit.w - 1.5 };   // 19.10.: Arbeitsplatz im anderen Dorf -> uebernachtet dort
     p.hin = weg(p.tuer, p.arbeit); p.einzug = NEU.has(p.h) && !b;   // 18.10. 23 Uhr: wer einen Beruf hat, arbeitet gleich (keine Einzugsrunde)
     p.auf = 6.5 + (p.z % 60) / 60; p.feier = Math.min(ZEIT.unter, 18) - .25 + ((p.z >> 6) % 40) / 60; p.schlaf = 22 + ((p.z >> 9) % 50) / 60;
     p.tuch = TUCH[p.z % TUCH.length]; p.kopf = [0xd9b964, 0x3a2a1a, 0x7a4a24, 0xb08a50, p.tuch][(p.z >> 3) % 5];
@@ -1591,6 +1613,10 @@ function alltagBauen() {
   const PALI = W_GEB.find(g => g.typ === "palisade_baustelle" && g.id === "palisade-1");
   function wache(p, s) {   // 18.10.: Wachen patrouillieren innen an der Palisade, Torwaechter am Dorfeingang (Furt), Nachtwache nachts mit Fackel
     const H = s / 3600, rolle = W_BERUFE[p.h], nacht = H < p.auf || H >= p.schlaf, gi = WACHEN.indexOf(p.h);
+    const ortW = (DATEN.arbeitsorte || {})[p.h], postW = ortW && W_GEB.find(g => g.id === ortW), dorfW = ortW && DOERFER.find(d => "dorf" + d.nr === ortW);   // 19.10.: Wachen von Dorf 2/3
+    if (postW) return { u: postW.u - 1.6, w: postW.w - 1.2, r: Math.PI * .5, pose: "steh", t: "t_wache", speer: true };
+    if (dorfW) { const gj = WACHEN.filter(h => (DATEN.arbeitsorte || {})[h] === ortW).indexOf(p.h), R2 = 30, per = 2 * Math.PI * R2 / 1.0, a = ((s / per) * 2 * Math.PI + gj * 2.1) % (2 * Math.PI);
+      return { u: dorfW.u + Math.cos(a) * R2 * 1.1, w: dorfW.w + Math.sin(a) * R2 * .9, r: -a, pose: "geh", t: "t_wache", speer: true }; }
     if (/gatekeeper/i.test(rolle)) return nacht ? null : { u: 7.5, w: 4.5, r: Math.PI, pose: "steh", t: "t_wache", speer: true };
     if (!CFG.nurTag && (/night/i.test(rolle) ? !nacht : nacht)) return null;
     const c = PALI ? PALI.c : { u: 0, w: 13 }, R = (PALI ? PALI.r : 30) - 3, a0 = 10 + gi * 17, a1 = a0 + 34, per = 34 * Math.PI / 180 * R / 1.0;
@@ -1865,6 +1891,7 @@ function schleife(ts) {
   bewegen(c, t, ng, NS * (WETTER === "nebel" ? .8 : 1), 2);   // 18.10.: Feuerschatten (Wuerfel = 6 Durchgaenge) tags gar nicht, nachts jedes 4. Bild neu
   FEUERSCHATTEN = (FEUERSCHATTEN + 1) % 4; for (const f of c.FEUER) { f.pl.shadow.autoUpdate = false; if (ng > .35 && FEUERSCHATTEN === 0 || FPS.n < 2) f.pl.shadow.needsUpdate = true; } leben(t); ALLTAG.tick(tagSek(ZEIT.sek()), t); ansicht(); NIED?.tick(t); renderer.render(c.scene, cam); schilder(); FPS.n++;
   if (ts - (UHR_T || 0) > 10000) { UHR_T = ts; uhrText(); }
+  { const f = K.b > 700; if (FERN.an !== f) { FERN.an = f; FERN.teile.forEach(m => m.visible = f); } }   // weite Sicht
   { const e = K.b > 80; if (LOD.stand !== e) { LOD.stand = e; LOD.detail.forEach(m => m.visible = !e); LOD.einfach.forEach(m => m.visible = e); } }   // ferne Viertel: einfach beim Herauszoomen
   LEISTUNG.n++; if (ts - LEISTUNG.t0 > 3000) { const fps = LEISTUNG.n * 1000 / (ts - LEISTUNG.t0); LEISTUNG.t0 = ts; LEISTUNG.n = 0; LEISTUNG.letzt = fps;   // schwache Bildrate: Niederschlag aus
     if (!LEISTUNG.voll && LEISTUNG.runden++ > 0 && fps < 20) { if (++LEISTUNG.schwach >= 2 && NIED && !NIED.aus) { NIED.aus = true; NIED.pts.visible = false; } } else LEISTUNG.schwach = 0; }
