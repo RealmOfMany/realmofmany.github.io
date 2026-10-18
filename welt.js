@@ -821,7 +821,7 @@ const TX = { wunsch_titel: "Today's wish", wunsch_von: "wish by", naechster: "",
   leeres_haus: "Common house", rennen_titel: "Wish race", rennen_hinweis: "comment on the latest reel — most likes gets built",
   seit: "Since your last visit:", seit_neu: "{namen} moved in", seit_weg: "{n} moved away", seit_bau: "{name} +{plus} %", seit_bau_neu: "new: {name}",
   gebaut: "built", geplant: "planned", rodung: "Clearing the forest", rodung_klein: "room for new cabins", fertig_zu: "{p} % built",
-  t_arbeit: "at work", t_weg: "on the way", t_heim: "heading home", t_feuer: "by the fire", t_einzug: "moving in", t_halle: "at the Village Hall",
+  t_arbeit: "at work", t_wache: "on patrol", t_nachtwache: "night watch", t_weg: "on the way", t_heim: "heading home", t_feuer: "by the fire", t_einzug: "moving in", t_halle: "at the Village Hall",
   saison: { winter: "winter", spring: "spring", summer: "summer", autumn: "autumn" }, wetter: { regen: "rain", schnee: "snow", nebel: "mist", klar: "" },
   ...(DATEN.texte || {}) };
 const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
@@ -1127,7 +1127,7 @@ fertig(c);
 // ---- Bewohner-Alltag (17.10.): echte Bewohner nach deutscher Uhrzeit — morgens raus, tagsueber am Beruf, abends am Feuer, nachts drinnen.
 // Alle Besucher sehen dasselbe (Uhrzeit + Handle). Hoechstens 12 gleichzeitig; alle Figuren zusammen 7 Draw-Calls (InstancedMesh). Nur echte Bewohner (Followerliste).
 function alltagBauen() {
-  const MAX = 24, hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
+  const MAX = 36, hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
   const HALLE = LAGE.find(l => l.typ === "langhaus"), NEU = new Set(DATEN.neu || []);
   const ROLLE = new Set((DATEN.figuren || []).filter(f => f.typ === "katze").map(f => f.handle));   // als Katze unterwegs, nicht zusaetzlich als Mensch
   const leute = LAGE.filter(l => l.bewohner.length).flatMap(l => l.bewohner.filter(h => !ROLLE.has(h)).map(h => ({ h, haus: l, z: hash(h) })));
@@ -1152,11 +1152,14 @@ function alltagBauen() {
   // Teile (je ein InstancedMesh): Rumpf, Kopf, Kopfbedeckung, Arme, Beine, Werkzeug, Buendel
   const geo = { rumpf: new THREE.CylinderGeometry(.18, .29, .82, 7), kopf: new THREE.IcosahedronGeometry(.18, 1), hut: new THREE.ConeGeometry(.25, .36, 7),
     arm: new THREE.BoxGeometry(.11, .5, .12).translate(0, -.24, 0), bein: new THREE.BoxGeometry(.16, .72, .18).translate(0, -.36, 0),
-    axt: new THREE.BoxGeometry(.07, 1.0, .07).translate(0, -.5, 0), buendel: new THREE.BoxGeometry(.5, .42, .3) };
+    axt: new THREE.BoxGeometry(.07, 1.0, .07).translate(0, -.5, 0), buendel: new THREE.BoxGeometry(.5, .42, .3),
+    helm: new THREE.ConeGeometry(.23, .3, 8), speer: new THREE.BoxGeometry(.05, 2.3, .05).translate(0, -.3, 0), fackel: new THREE.BoxGeometry(.06, .6, .06).translate(0, -.2, 0), flamme: new THREE.ConeGeometry(.09, .26, 6) };
   const mk = (g, n, farbe) => { const im = new THREE.InstancedMesh(g, new THREE.MeshStandardMaterial({ flatShading: true, roughness: .95, color: farbe ?? 0xffffff }), n);
     im.castShadow = true; im.receiveShadow = true; im.frustumCulled = false; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(im); return im; };
   const IM = { rumpf: mk(geo.rumpf, MAX), kopf: mk(geo.kopf, MAX, PAL.haut), hut: mk(geo.hut, MAX), arm: mk(geo.arm, MAX * 2), bein: mk(geo.bein, MAX * 2, 0x4a3a2a),
-    axt: mk(geo.axt, MAX, 0x7b5534), buendel: mk(geo.buendel, MAX, 0xb59a6a) };
+    axt: mk(geo.axt, MAX, 0x7b5534), buendel: mk(geo.buendel, MAX, 0xb59a6a), helm: mk(geo.helm, MAX, 0x8a8f96), speer: mk(geo.speer, MAX, 0x6b4a2a), fackel: mk(geo.fackel, MAX, 0x5a3a20),
+    flamme: new THREE.InstancedMesh(geo.flamme, new THREE.MeshBasicMaterial({ color: 0xffa040 }), MAX) };
+  IM.flamme.frustumCulled = false; scene.add(IM.flamme); const FACKELLICHT = glanz(new THREE.Vector3(0, -50, 0), 0xffa040, 3.2, 0);
   const NULL = new THREE.Matrix4().makeScale(0, 0, 0), slots = [];
   for (let i = 0; i < MAX; i++) { const root = new THREE.Object3D(), ober = new THREE.Object3D(), rumpf = new THREE.Object3D(), kopf = new THREE.Object3D(), hut = new THREE.Object3D(), buendel = new THREE.Object3D();
     root.scale.setScalar(1.45); ober.position.y = .72; rumpf.position.y = .28; kopf.position.y = .9; hut.position.set(0, 1.08, -.02); buendel.position.set(0, .4, -.3);
@@ -1164,10 +1167,25 @@ function alltagBauen() {
     const arme = [-1, 1].map(sx => { const a = new THREE.Object3D(); a.position.set(sx * .25, .62, 0); ober.add(a); return a; });
     const beine = [-1, 1].map(sx => { const b = new THREE.Object3D(); b.position.set(sx * .1, .72, 0); root.add(b); return b; });
     const axt = new THREE.Object3D(); axt.position.set(0, -.45, .05); axt.rotation.x = Math.PI; arme[1].add(axt);
-    slots.push({ root, ober, rumpf, kopf, hut, buendel, arme, beine, axt, p: null }); }
+    const helm = new THREE.Object3D(); helm.position.set(0, 1.1, 0); ober.add(helm);
+    const speer = new THREE.Object3D(); speer.position.set(.04, -.45, .08); arme[1].add(speer);
+    const fackel = new THREE.Object3D(); fackel.position.set(.02, -.45, .1); arme[1].add(fackel); const flamme = new THREE.Object3D(); flamme.position.set(0, .2, 0); fackel.add(flamme);
+    slots.push({ root, ober, rumpf, kopf, hut, buendel, arme, beine, axt, helm, speer, fackel, flamme, p: null }); }
   for (const im of [IM.rumpf, IM.hut, IM.arm]) im.setColorAt(0, new THREE.Color());   // Farbpuffer anlegen
   let wahl = [], wahlStunde = -1, sichtbar = 0;
+  const WACHEN = Object.keys(W_BERUFE).filter(h => /guard|watch|gatekeeper/i.test(W_BERUFE[h]));
+  const PALI = W_GEB.find(g => g.typ === "palisade_baustelle" && g.id === "palisade-1");
+  function wache(p, s) {   // 18.10.: Wachen patrouillieren innen an der Palisade, Torwaechter am Dorfeingang (Furt), Nachtwache nachts mit Fackel
+    const H = s / 3600, rolle = W_BERUFE[p.h], nacht = H < p.auf || H >= p.schlaf, gi = WACHEN.indexOf(p.h);
+    if (/gatekeeper/i.test(rolle)) return nacht ? null : { u: 7.5, w: 4.5, r: Math.PI, pose: "steh", t: "t_wache", speer: true };
+    if (/night/i.test(rolle) ? !nacht : nacht) return null;
+    const c = PALI ? PALI.c : { u: 0, w: 13 }, R = (PALI ? PALI.r : 30) - 3, a0 = 10 + gi * 17, a1 = a0 + 34, per = 34 * Math.PI / 180 * R / 1.0;
+    const z = ((s + gi * 37) % (2 * per)) / per, k = z < 1 ? z : 2 - z, a = (a0 + (a1 - a0) * k) * Math.PI / 180;
+    const u = c.u + Math.cos(a) * R, w = c.w + Math.sin(a) * R, dir = z < 1 ? 1 : -1;
+    return { u, w, r: Math.atan2(-Math.sin(a) * dir, -Math.cos(a) * dir) + Math.PI / 2 * 0, pose: "geh", t: /night/i.test(rolle) ? "t_nachtwache" : "t_wache", speer: !/night/i.test(rolle), fackel: /night/i.test(rolle) };
+  }
   const zustand = (p, s) => {   // -> { u, w, r, pose, t } oder null (drinnen)
+    if (WACHEN.includes(p.h)) return wache(p, s);
     const H = s / 3600, v = 1.15, P = 240, ph = (p.z % 997) / 997 * P;
     if (H < p.auf || H >= p.schlaf + .25) return null;
     if (H >= p.schlaf) { const f = weg(SITZ[p.sitz], p.tuer), x = amWeg(f, (H - p.schlaf) * 3600 * v); return (H - p.schlaf) * 3600 * v > f.L ? null : { ...x, pose: "geh", t: "t_heim" }; }
@@ -1191,14 +1209,14 @@ function alltagBauen() {
       wahl.forEach((p, i) => { p.sitz = i; slots[i].p = p; IM.rumpf.setColorAt(i, cl.setHex(p.tuch)); IM.arm.setColorAt(2 * i, cl); IM.arm.setColorAt(2 * i + 1, cl); IM.hut.setColorAt(i, cl.setHex(p.kopf)); });
       for (let i = wahl.length; i < MAX; i++) slots[i].p = null;
       for (const im of [IM.rumpf, IM.arm, IM.hut]) im.instanceColor.needsUpdate = true; }
-    sichtbar = 0;
+    sichtbar = 0; let fackelDa = false;
     slots.forEach((sl, i) => { const z = sl.p && zustand(sl.p, s); sl.z = z;
-      if (!z) { for (const k of ["rumpf", "kopf", "hut", "axt", "buendel"]) IM[k].setMatrixAt(i, NULL); for (const k of ["arm", "bein"]) { IM[k].setMatrixAt(2 * i, NULL); IM[k].setMatrixAt(2 * i + 1, NULL); } return; }
+      if (!z) { for (const k of ["rumpf", "kopf", "hut", "axt", "buendel", "helm", "speer", "fackel", "flamme"]) IM[k].setMatrixAt(i, NULL); for (const k of ["arm", "bein"]) { IM[k].setMatrixAt(2 * i, NULL); IM[k].setMatrixAt(2 * i + 1, NULL); } return; }
       sichtbar++; const ph = (sl.p.z % 100) / 16, sitz = z.pose === "sitz";
       let y = hoehe(z.u, z.w); if (Math.abs(z.w - flussW(z.u)) < 3.2) y = Math.max(y, WASSER_Y - .3);   // Furt: knietief im Bach
       sl.root.position.set(z.u, y - (sitz ? .28 : 0), -z.w); sl.root.rotation.y = z.r || 0;
       sl.ober.rotation.set(0, 0, 0); sl.arme.forEach(a => a.rotation.set(0, 0, 0)); sl.beine.forEach(b => b.rotation.set(0, 0, 0));
-      if (z.pose === "geh") { const q = Math.sin(t * 6 + ph); sl.beine[0].rotation.x = .45 * q; sl.beine[1].rotation.x = -.45 * q; sl.arme[0].rotation.x = -.35 * q; sl.arme[1].rotation.x = z.buendel ? -.4 : .35 * q;
+      if (z.pose === "geh") { const q = Math.sin(t * 6 + ph); sl.beine[0].rotation.x = .45 * q; sl.beine[1].rotation.x = -.45 * q; sl.arme[0].rotation.x = -.35 * q; sl.arme[1].rotation.x = z.buendel ? -.4 : (z.speer || z.fackel) ? -.25 : .35 * q;
         sl.root.position.y += .03 * Math.abs(q); }
       else if (sitz) { sl.beine.forEach(b => b.rotation.x = -1.45); sl.ober.rotation.x = .18 + .04 * Math.sin(t * 1.4 + ph); sl.arme.forEach(a => a.rotation.x = -1.05 + .08 * Math.sin(t * 1.1 + ph)); }
       else if (z.pose === "axt") { const p = ((t + ph) / 1.3) % 1, a = p < .65 ? -1.1 - 1.7 * weich(p / .65) : -2.8 + 1.7 * ((p - .65) / .35) ** 2; sl.arme.forEach(x => x.rotation.x = a); sl.ober.rotation.x = .12; }
@@ -1207,8 +1225,11 @@ function alltagBauen() {
       sl.root.updateMatrixWorld(true);
       IM.rumpf.setMatrixAt(i, sl.rumpf.matrixWorld); IM.kopf.setMatrixAt(i, sl.kopf.matrixWorld); IM.hut.setMatrixAt(i, sl.hut.matrixWorld);
       IM.axt.setMatrixAt(i, z.pose === "axt" ? sl.axt.matrixWorld : NULL); IM.buendel.setMatrixAt(i, z.buendel ? sl.buendel.matrixWorld : NULL);
+      const wa = z.speer || z.fackel; IM.helm.setMatrixAt(i, wa ? sl.helm.matrixWorld : NULL); IM.hut.setMatrixAt(i, wa ? NULL : sl.hut.matrixWorld);
+      IM.speer.setMatrixAt(i, z.speer ? sl.speer.matrixWorld : NULL); IM.fackel.setMatrixAt(i, z.fackel ? sl.fackel.matrixWorld : NULL); IM.flamme.setMatrixAt(i, z.fackel ? sl.flamme.matrixWorld : NULL);
+      if (z.fackel) { FACKELLICHT.position.setFromMatrixPosition(sl.flamme.matrixWorld); FACKELLICHT.material.opacity = .55 + .1 * Math.sin(t * 17); fackelDa = true; }
       for (let k = 0; k < 2; k++) { IM.arm.setMatrixAt(2 * i + k, sl.arme[k].matrixWorld); IM.bein.setMatrixAt(2 * i + k, sl.beine[k].matrixWorld); } });
-    for (const im of Object.values(IM)) im.instanceMatrix.needsUpdate = true; }
+    for (const im of Object.values(IM)) im.instanceMatrix.needsUpdate = true; if (!fackelDa) FACKELLICHT.material.opacity = 0; }
   // Antippen -> Name + was die Person gerade tut
   const ray = new THREE.Raycaster(), ndc = new THREE.Vector2();
   function tippen(x, y) { ndc.set(x / innerWidth * 2 - 1, -(y / innerHeight) * 2 + 1); ray.setFromCamera(ndc, cam);
