@@ -841,22 +841,48 @@ const BAUTEN = {
     wg.position.set(-3.0, 0, 1.2); wg.rotation.y = .3; g.add(wg);
     const bogen = mesh(new THREE.TorusGeometry(.7, .04, 4, 10, Math.PI), mat("holzDunkel")); bogen.position.set(1.9, .9, 1.65); bogen.rotation.z = Math.PI / 2; g.add(bogen);
     return g; },
-  hexenhuette(gd) {   // 19.10.: Hexe am Stadtrand — krumme Huette, Kessel mit gruenem Glimmen, Kraeuterbuendel, schwarze Katze, Figur
-    const g = new THREE.Group(); const h = haus({ l: 3.4, b: 2.9, h: 2.1, wand: "holz", dach: "stroh", kamin: true, wandMat: mat(0x4b3a30) });
-    h.rotation.z = .05; h.children.forEach(c => { if (c.position.y > 2) c.rotation.z = .16; }); g.add(h);
-    const kessel = mesh(new THREE.CylinderGeometry(.5, .38, .6, 9), mat(0x222222)); kessel.position.set(2.4, .45, 1.4); g.add(kessel);
-    for (const x of [-.6, .6]) { const b2 = box(.06, 1.2, .06, mat("stamm"), 2.4 + x, .6, 1.4); b2.rotation.z = x * .4; g.add(b2); }
-    const brei = mesh(new THREE.CircleGeometry(.42, 9), new THREE.MeshBasicMaterial({ color: 0x6aff5a })); brei.rotation.x = -Math.PI / 2; brei.position.set(2.4, .76, 1.4); g.add(brei);
-    const glut = mesh(new THREE.CylinderGeometry(.25, .35, .2, 7), new THREE.MeshBasicMaterial({ color: 0xff8a30 })); glut.position.set(2.4, .1, 1.4); g.add(glut);
-    for (let i = 0; i < 5; i++) { const k = box(.12, .4, .12, mat([0x6a7a3a, 0x8a6a3a, 0x5a6a2a][i % 3]), -1.2 + i * .55, 1.75, 1.6); g.add(k); }
+  hexenhuette(gd) {   // 19.10. v2 (Anthony „nachbessern“): eigene krumme Hexenhuette am Waldrand — eingesunkenes Moosdach, schiefer Schornstein mit Rauch,
+    // verwittertes dunkles Holz, schiefe Tuer, rundes Fenster mit gruenem Schimmer, Baeume/Pilze/Steine drumherum, umzaeunter Kraeutergarten, Kessel + Katze
+    const g = new THREE.Group(), L = 3.6, B = 3.0, H = 2.0, holz = mat(0x3e3128), holz2 = mat(0x2e241e), moos = mat(0x4a5a2a), moos2 = mat(0x3a4a24);
+    g.add(box(L + .3, .5, B + .3, mat("steinDunkel"), 0, .1, 0));
+    const wand = new THREE.Group(); for (let i = 0; i < 6; i++) { const b = box(L, .36, B, i % 2 ? holz : holz2, (i % 2 ? .05 : -.05), .55 + i * .34, 0); wand.add(b); }
+    wand.rotation.z = .04; g.add(wand);
+    const dach = new THREE.Group();   // eingesunkenes Satteldach aus zwei geknickten Haelften je Seite
+    for (const sg of [-1, 1]) for (const [k, dx, dz] of [[0, -.9, 0], [1, .9, .12]]) { const t = box(L / 2 + .55, .16, B / 2 + .65, k ? moos : moos2, dx, 0, sg * (B / 4 + .15)); t.rotation.x = sg * (.62 + k * .12); t.position.y = 2.75 - k * .12; dach.add(t); }
+    dach.add(box(L + .9, .14, .3, moos, 0, 3.15, 0)); dach.rotation.z = -.07; g.add(dach);
+    for (let i = 0; i < 6; i++) { const m = mesh(new THREE.IcosahedronGeometry(.16 + (i % 3) * .05, 0), moos); m.position.set(-1.5 + i * .6, 2.9 - (i % 2) * .2, (i % 2 ? .7 : -.7)); m.scale.y = .45; g.add(m); }
+    const sch = box(.55, 1.9, .55, mat("steinDunkel"), 1.2, 3.1, -.5); sch.rotation.z = -.22; sch.rotation.x = .08; g.add(sch); EMITTER.push({ g, p: new THREE.Vector3(1.45, 4.1, -.42), hexe: true });
+    const tuer = box(.8, 1.4, .08, mat(0x24190f), -.6, 1.05, B / 2 + .04); tuer.rotation.z = .1; g.add(tuer);
+    const fenster = mesh(new THREE.CircleGeometry(.28, 12), new THREE.MeshBasicMaterial({ color: 0x7aff6a })); fenster.position.set(.8, 1.75, B / 2 + .05); g.add(fenster);
+    const rahmen = mesh(new THREE.TorusGeometry(.3, .05, 4, 12), holz2); rahmen.position.copy(fenster.position); g.add(rahmen);
+    // Kessel (bleibt), Kraeuterbuendel unter der Traufe
+    const kessel = mesh(new THREE.CylinderGeometry(.5, .38, .6, 9), mat(0x222222)); kessel.position.set(2.6, .45, 1.6); g.add(kessel);
+    for (const x of [-.6, .6]) { const b2 = box(.06, 1.2, .06, mat("stamm"), 2.6 + x, .6, 1.6); b2.rotation.z = x * .4; g.add(b2); }
+    const brei = mesh(new THREE.CircleGeometry(.42, 9), new THREE.MeshBasicMaterial({ color: 0x6aff5a })); brei.rotation.x = -Math.PI / 2; brei.position.set(2.6, .76, 1.6); g.add(brei);
+    g.add(mesh(new THREE.CylinderGeometry(.25, .35, .2, 7), new THREE.MeshBasicMaterial({ color: 0xff8a30 }))).position.set(2.6, .1, 1.6);
+    for (let i = 0; i < 5; i++) g.add(box(.12, .4, .12, mat([0x6a7a3a, 0x8a6a3a, 0x5a6a2a][i % 3]), -1.4 + i * .5, 1.95, B / 2 + .25));
+    // Kraeutergarten mit Flechtzaun
+    const gt = new THREE.Group(); gt.add(box(2.6, .1, 2.0, mat("erdeDunkel"), 0, .05, 0));
+    for (let r = 0; r < 3; r++) for (let k = 0; k < 4; k++) { const pf = mesh(new THREE.IcosahedronGeometry(.16, 0), mat([0x5a7a3a, 0x7a6a9a, 0x6a8a4a][r])); pf.position.set(-.9 + k * .6, .2, -.6 + r * .6); pf.scale.y = .8; gt.add(pf); }
+    for (const [x, z, l, ry] of [[0, 1.05, 2.8, 0], [0, -1.05, 2.8, 0], [1.35, 0, 2.1, Math.PI / 2], [-1.35, 0, 2.1, Math.PI / 2]]) { const f = box(l, .4, .06, holz2, x, .22, z); f.rotation.y = ry; f.rotation.z = .04; gt.add(f); }
+    gt.position.set(-3.2, 0, 1.0); g.add(gt);
+    // Waldrand: dunkle Tannen + knorrige Laubbaeume, Pilze, Steine
+    const tanne = (x, z, s) => { const t = new THREE.Group(); t.add(box(.2, 1.0, .2, mat("stamm"), 0, .5, 0)); for (let i = 0; i < 3; i++) { const c = mesh(new THREE.ConeGeometry(1.3 - i * .35, 1.5, 6), mat(0x23361f)); c.position.y = 1.4 + i * .9; t.add(c); } t.scale.setScalar(s); t.position.set(x, 0, z); g.add(t); };
+    const knorrig = (x, z, s) => { const t = new THREE.Group(); const st = box(.32, 2.2, .32, mat(0x3a2a1c), 0, 1.1, 0); st.rotation.z = .2; t.add(st); const ast = box(.14, 1.2, .14, mat(0x3a2a1c), .5, 1.9, 0); ast.rotation.z = -.9; t.add(ast);
+      for (const [a, b, c] of [[.2, 2.6, 0], [.9, 2.3, .3], [-.3, 2.3, -.4]]) { const k = mesh(new THREE.IcosahedronGeometry(.75, 0), mat(0x3f4a24)); k.position.set(a, b, c); t.add(k); } t.scale.setScalar(s); t.position.set(x, 0, z); g.add(t); };
+    tanne(-4.2, -2.6, 1.15); tanne(-2.2, -4.0, 1.3); tanne(3.8, -3.4, 1.05); tanne(-5.6, -.6, .95); knorrig(4.6, -1.0, 1.1); knorrig(-1.0, -4.6, 1.0); knorrig(5.4, 2.4, .9);
+    for (let i = 0; i < 9; i++) { const a = i * 1.7, rr_ = 3.4 + (i % 3) * .8, x = Math.cos(a) * rr_, z = Math.sin(a) * rr_; if (z > 1.2 && x > 1.5 && x < 3.6) continue;
+      const pz = new THREE.Group(); pz.add(box(.06, .18, .06, mat(0xe8e0c8), 0, .09, 0)); const hut = mesh(new THREE.SphereGeometry(.13, 6, 4, 0, 6.283, 0, 1.6), mat(i % 2 ? 0xb02a20 : 0x8a6a3a)); hut.position.y = .19; pz.add(hut); pz.position.set(x, 0, z); g.add(pz); }
+    for (let i = 0; i < 6; i++) { const st = mesh(new THREE.DodecahedronGeometry(.22 + (i % 3) * .1, 0), mat("steinDunkel")); st.position.set(Math.cos(i * 2.3) * 4.4, .1, Math.sin(i * 2.3) * 3.9); st.scale.y = .6; g.add(st); }
+    // Katze + Figur (bleiben)
     const katz = new THREE.Group(), sw2 = mat(0x151515); const kk = mesh(new THREE.IcosahedronGeometry(.2, 0), sw2); kk.scale.set(1.5, .8, .8); kk.position.y = .25; katz.add(kk);
     const kp = mesh(new THREE.IcosahedronGeometry(.13, 0), sw2); kp.position.set(.28, .4, 0); katz.add(kp); for (const z of [-.06, .06]) { const o = mesh(new THREE.ConeGeometry(.05, .12, 4), sw2); o.position.set(.29, .55, z); katz.add(o); }
-    const sch = box(.04, .4, .04, sw2, -.32, .45, 0); sch.rotation.z = .5; katz.add(sch); katz.position.set(-1.9, 0, 1.7); katz.rotation.y = 1.2; g.add(katz);
+    const sw3 = box(.04, .4, .04, sw2, -.32, .45, 0); sw3.rotation.z = .5; katz.add(sw3); katz.position.set(.2, .52, B / 2 + .55); katz.rotation.y = 1.2; g.add(katz);
     const m = new THREE.Group(), tuch = mat(0x3a2a4a); for (const x of [-.11, .11]) m.add(box(.16, .75, .18, mat(0x2a2028), x, .38, 0));
     const rock = mesh(new THREE.ConeGeometry(.4, 1.3, 7), tuch); rock.position.y = .75; m.add(rock); for (const x of [-.3, .3]) m.add(box(.13, .6, .14, tuch, x, 1.15, 0));
-    const kopf = mesh(new THREE.IcosahedronGeometry(.18, 0), mat(PAL.haut)); kopf.position.y = 1.58; m.add(kopf); const hut = mesh(new THREE.ConeGeometry(.3, .75, 7), mat(0x2a1a34)); hut.position.y = 2.0; hut.rotation.z = .2; m.add(hut);
+    const kopf = mesh(new THREE.IcosahedronGeometry(.18, 0), mat(PAL.haut)); kopf.position.y = 1.58; m.add(kopf); const hh = mesh(new THREE.ConeGeometry(.3, .75, 7), mat(0x2a1a34)); hh.position.y = 2.0; hh.rotation.z = .2; m.add(hh);
     const krempe = mesh(new THREE.CylinderGeometry(.42, .42, .04, 9), mat(0x2a1a34)); krempe.position.y = 1.68; m.add(krempe);
-    m.scale.setScalar(1.1); m.position.set(1.6, 0, 1.9); m.rotation.y = -.9; g.add(m); g.userData.hexeP = new THREE.Vector3(1.6, 3.4, 1.9);
+    m.scale.setScalar(1.1); m.position.set(1.7, 0, 2.3); m.rotation.y = -.9; g.add(m); g.userData.hexeP = new THREE.Vector3(1.7, 3.5, 2.3);
     gd._g = g; GLANZ.push({ sp: glanz(new THREE.Vector3(0, 0, 0), 0x6aff5a, 2.4, .35), tag: .35, nacht: .7, hexe: gd }); return g; },
   holzturm(gd) {   // 18.10. abends: Holz-Wachturm (Turmplatz), oben steht die Turmwache
     const g = TYPEN.wachturm({ holz: true }), H = 6;
@@ -1221,7 +1247,7 @@ const LEBEN = { rehe: [], hasen: [], voegel: [], laeufer: [], wurzeln: [] };
 for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
   const C = gd.c, PR = gd.r, N = gd.n, PP = [], SEILE = new THREE.Group(); scene.add(SEILE);
   const RAD = gd.radien ? (deg => { const d = ((deg % 360) + 360) % 360, k = Math.floor(d), f = d - k; return gd.radien[k % 360] * (1 - f) + gd.radien[(k + 1) % 360] * f; }) : () => PR;   // 18.10. abends: Radius je Winkel (aeussere Palisade um ganz Dorf 1)
-  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 4.0 };
+  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0 };
   const ARC = [];   // 18.10. abends: Pfaehle nach Bogenlaenge verteilen (bei Radius je Winkel sonst Loecher an Ausbuchtungen)
   if (gd.radien) { let L = 0, q = null; for (let k = 0; k <= 4000; k++) { const deg = gd.von_grad + (gd.bis_grad - gd.von_grad) * k / 4000, a = deg * Math.PI / 180, p = { u: C.u + Math.cos(a) * RAD(deg) * (gd.su || 1), w: C.w + Math.sin(a) * RAD(deg) * (gd.sw || 1), deg };
       if (q) L += Math.hypot(p.u - q.u, p.w - q.w); p.L = L; ARC.push(p); q = p; } }
@@ -1544,7 +1570,7 @@ if (CFG.tiere) { const RT = rng(90210), rr2 = (a, b) => a + RT() * (b - a), M4 =
     else if (x < .9) hasen.push([u, w, RT() * 6.283, 1]); else fuechse.push([u, w, RT() * 6.283, 1]); }
   art("rehe", () => reh(false), rehe, true); art("hasen", hase, hasen); art("fuechse", fuchs, fuechse, true);
   window.__tiere = () => TIERE.n; }
-const GEB_R = { weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 4.0 };
+const GEB_R = { weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0 };
 window.__inventar = () => { let pf = 0; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "CylinderGeometry") pf++; });
   return { fluss: FLUSS.mesh ? FLUSS.y.length : 0, baeume: window.__waldbaeume || 0, baum_teile: window.__baeume || 0, huetten: LAGE.length,
     huetten_im_wasser: LAGE.filter(l => Math.abs(l.w - flussW(l.u)) < 2.6).length,
@@ -1600,7 +1626,7 @@ const ALLTAG = alltagBauen();
 }
 
 scene.updateMatrixWorld(true);   // 18.10.: Rauch nur Feuer + 10 Kamine nahe der Dorfmitte (jeder Rauch = 10 Sprites = 10 Draw-Calls)
-EMITTER = [...EMITTER.filter(e => e.feuer), ...EMITTER.filter(e => !e.feuer).map(e => ({ e, d: e.g.localToWorld(e.p.clone()).distanceTo(new THREE.Vector3(0, 0, -DORF_MITTE_W)) }))
+EMITTER = [...EMITTER.filter(e => e.feuer || e.hexe), ...EMITTER.filter(e => !e.feuer && !e.hexe).map(e => ({ e, d: e.g.localToWorld(e.p.clone()).distanceTo(new THREE.Vector3(0, 0, -DORF_MITTE_W)) }))
   .sort((a, b) => a.d - b.d).slice(0, 10).map(x => x.e)];
 fertig(c);
 
@@ -1820,7 +1846,7 @@ if (FIG.katze) { neuSchild({ u: 0, w: 0, dach: new THREE.Vector3(), groesse: 3, 
     if (gd.typ === "fischerhuette") { Z(gd.u, gd.w, hoehe(gd.u, gd.w) + 4.6, `<span class="klein">${esc(gd.schild || "Fishing hut")}</span>`, "arbeit", 6, [], PRIO.arbeit);
       if (gd.ober && gd._g.userData.oberP) { const q = gd._g.localToWorld(gd._g.userData.oberP.clone()); Z(q.x, -q.z, q.y, hd(gd.ober, "Head fisherman"), null, 6, [gd.ober]); } }
     if (gd.typ === "hexenhuette") { const q = gd._g.localToWorld(gd._g.userData.hexeP.clone()); Z(q.x, -q.z, q.y, hd(gd.hexe, "Witch of the outskirts"), null, 6, [gd.hexe]);
-      const k2 = gd._g.localToWorld(new THREE.Vector3(2.4, 1.0, 1.4)); for (const gl of GLANZ) if (gl.hexe === gd) gl.sp.position.copy(k2); } }
+      const k2 = gd._g.localToWorld(new THREE.Vector3(2.6, 1.0, 1.6)); for (const gl of GLANZ) if (gl.hexe === gd) gl.sp.position.copy(k2); } }
   for (const gd of W_GEB) if (gd.typ === "jaegerhuette") Z(gd.u, gd.w, hoehe(gd.u, gd.w) + 5.2, `<span class="klein">${esc(gd.schild || "Hunters' lodge")}</span>`, "arbeit", 6, [], PRIO.arbeit);
   if (ZUS.hauptmann) { const H = ZUS.hauptmann; Z(H.u, H.w, hoehe(H.u, H.w) + 4.4, hd(H.h, "Captain of the guard"), null, 6, [H.h]); }
   if (ZUS.falke) { const F = ZUS.falke, P = ZUS.pos.falkner; Z(P.u, P.w, hoehe(P.u, P.w) + 4.0, hd(F.h, "Falconer"), null, 6, [F.h]); }
