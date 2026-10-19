@@ -1012,6 +1012,140 @@ Object.assign(BAUTEN, {
 });
 // ==== /ZUSAGEN-1810:BAUTEN ====
 
+// ==== TURM-1910:BAUTEN (patches/turm_1910.py) — Alchemie- und Forschungsturm fuer Uebernatuerliches, Varianten A / B / C ====
+const TURM = { var: "A", quellen: [], orbit: null, funken: null, dampf: null, halo: [], pos: {}, g: null };
+const TU = {   // Farben: dunkler Stein, Schiefer, leuchtende Kristalle (MeshBasic = leuchten auch bei Tag)
+  stein: () => mat(0x50536a), stein2: () => mat(0x5f6380), schiefer: () => mat(0x3a4778), kupfer: () => mat(0x3f8f7c), gold: () => mat(0xd9b04a),
+  fenster: () => new THREE.MeshBasicMaterial({ color: 0xffd98a }), vio: () => new THREE.MeshBasicMaterial({ color: 0xb46cff }), tuerkis: () => new THREE.MeshBasicMaterial({ color: 0x59ffd6 }),
+  gruen: () => new THREE.MeshBasicMaterial({ color: 0x7dff5a }), rot: () => new THREE.MeshBasicMaterial({ color: 0xff6a8a }) };
+const TUC = {}; for (const k of Object.keys(TU)) { const f = TU[k]; let m = null; TU[k] = () => m || (m = f()); }   // Materialien teilen -> wenige Draw-Calls
+const tuStab = (g, x, z, h, m) => g.add(box(.18, h, .18, m, x, h / 2, z));
+function tuKristall(g, x, y, z, s, m, extra = 1) {   // Doppelpyramide (Oktaeder) + 2 kleine Splitter
+  const k = mesh(new THREE.OctahedronGeometry(1, 0), m, false); k.scale.set(.6 * s, 1.15 * s * extra, .6 * s); k.position.set(x, y, z); g.add(k);
+  for (const [dx, dz, q] of [[.8, .2, .5], [-.7, -.3, .42]]) { const c = mesh(new THREE.OctahedronGeometry(1, 0), m, false); c.scale.set(.3 * s * q * 2, .6 * s * q * 2, .3 * s * q * 2); c.position.set(x + dx * s, y - .4 * s, z + dz * s); c.rotation.z = dx * .5; g.add(c); } }
+function tuFenster(g, x, y, z, ry, w = .5, h = .8) { const f = box(w, h, .12, TU.fenster(), 0, 0, 0); const r = new THREE.Group(); r.add(f); r.add(box(w + .16, .1, .2, mat("holzDunkel"), 0, -h / 2 - .05, 0)); r.add(box(w + .16, .1, .2, mat("holzDunkel"), 0, h / 2 + .05, 0)); r.position.set(x, y, z); r.rotation.y = ry; g.add(r); }
+function tuErker(g, x, y, z, ry, s = 1) {   // Holzerker mit Spitzdach und Fenster
+  const e = new THREE.Group(), ho = mat("holz"), hd = mat("holzDunkel");
+  e.add(box(2.0 * s, 1.7 * s, 1.6 * s, ho, 0, 0, 0)); for (const sx of [-1, 1]) e.add(box(.14, 1.8 * s, 1.7 * s, hd, sx * 1.0 * s, 0, 0)); e.add(box(2.1 * s, .14, 1.7 * s, hd, 0, -.85 * s, 0));
+  tuFenster(e, 0, 0, .83 * s, 0, .6 * s, .8 * s); const d = giebelDach(2.1 * s, 1.7 * s, .9 * s, .14, TU.schiefer(), .3, mat(0x1f2536)); d.rotation.y = Math.PI / 2; d.position.y = .85 * s; e.add(d);
+  e.position.set(x, y, z); e.rotation.y = ry; g.add(e); }
+function tuSpitze(g, cx, cz, y0, r0, h, seg, bieg, m, n = 6) {   // schiefes Spitzdach aus n Kegelstuempfen
+  for (let j = 0; j < n; j++) { const t0 = j / n, t1 = (j + 1) / n, c = mesh(new THREE.CylinderGeometry(r0 * (1 - t1) + .05, r0 * (1 - t0), h / n + .05, seg), m); c.position.set(cx + bieg * t0 * t0 * 1, y0 + h * (j + .5) / n, cz + bieg * .35 * t0 * t0); c.rotation.y = j * .3; g.add(c); }
+  const rand = mesh(new THREE.CylinderGeometry(r0 * 1.12, r0 * 1.12, .22, seg), mat(0x1f2536)); rand.position.set(cx, y0 + .05, cz); g.add(rand); }
+function tuBalkon(g, cx, cz, y, r, rot = 0, fernrohr = true) {
+  const m = mat("holzDunkel"), ho = mat("holz");
+  const p = mesh(new THREE.CylinderGeometry(r, r * .92, .3, 12), TU.stein2()); p.position.set(cx, y, cz); g.add(p);
+  for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2 + rot; if (i % 4 === 0) continue; g.add(box(.12, 1.0, .12, m, cx + Math.cos(a) * (r - .1), y + .65, cz + Math.sin(a) * (r - .1))); }
+  for (const hy of [.9, 1.15]) { const rg = mesh(new THREE.TorusGeometry(r - .1, .05, 4, 12).rotateX(Math.PI / 2), ho); rg.position.set(cx, y + hy, cz); g.add(rg); }
+  if (fernrohr) { const t = new THREE.Group(), rohr = mesh(new THREE.CylinderGeometry(.2, .28, 3.2, 8), TU.kupfer()); rohr.rotation.z = Math.PI / 2 - .75; rohr.position.set(.6, 1.3, 0); t.add(rohr);
+    t.add(mesh(new THREE.CylinderGeometry(.3, .3, .12, 8), TU.gold())); const l = mesh(new THREE.CylinderGeometry(.3, .3, .06, 8), TU.tuerkis()); l.rotation.z = Math.PI / 2 - .75; l.position.set(2.0, 2.45, 0); t.add(l);
+    for (const [dx, dz] of [[-.5, 0], [.4, .5], [.4, -.5]]) { const b = box(.1, 1.3, .1, m, dx * .6, .6, dz * .6); b.rotation.z = -dx * .5; b.rotation.x = dz * .5; t.add(b); }
+    t.position.set(cx + r * .2, y + .15, cz); t.rotation.y = rot * 0 + .6; g.add(t); } }
+function tuLabor(g, v, ox, oz, ry) {   // Alchemie-Anbau: offener Schuppen mit Regalen + Destillation, Kessel auf Feuer, Kraeuterbeete
+  const L = new THREE.Group(), st = TU.stein(), ho = mat("holz"), hd = mat("holzDunkel"), farbe2 = v === "B" ? [TU.vio(), TU.tuerkis()] : v === "C" ? [TU.gruen(), TU.vio()] : [TU.gruen(), TU.tuerkis()];
+  L.add(box(7.2, .5, 5.2, mat("steinDunkel"), 0, .0, 0));
+  L.add(box(7.0, 3.0, .4, st, 0, 1.75, -2.4)); for (const sx of [-1, 1]) L.add(box(.4, 3.0, 4.6, st, sx * 3.4, 1.75, -.2));
+  const dach = pult(7.6, 5.4, 4.2, 3.1, TU.schiefer()); dach.position.set(0, 0, 0); L.add(dach);
+  for (const [x, z] of [[-3.4, 2.1], [3.4, 2.1]]) L.add(box(.3, 3.2, .3, mat("stamm"), x, 1.9, z)); L.add(box(7.4, .25, .3, hd, 0, 3.5, 2.1));
+  // Regale mit Glaesern an der Rueckwand
+  for (const y of [1.0, 1.9, 2.8]) { L.add(box(5.8, .1, .5, ho, 0, y, -2.0)); for (let i = 0; i < 8; i++) { const c = [TU.gruen(), TU.vio(), TU.tuerkis(), TU.rot()][(i + (y * 3 | 0)) % 4]; L.add(box(.3, .42, .3, c, -2.5 + i * .72, y + .26, -2.0)); } }
+  // Tisch mit Destillierkolben (Kugel + Hals + Rohr + Auffang)
+  L.add(box(3.2, .12, 1.3, ho, 0, 1.0, -.2)); for (const [x, z] of [[-1.4, .3], [1.4, .3], [-1.4, -.7], [1.4, -.7]]) L.add(box(.12, 1.0, .12, hd, x, .5, z));
+  const kolb = (x, m, s = 1) => { const k = mesh(new THREE.IcosahedronGeometry(.4 * s, 1), m, false); k.position.set(x, 1.62, -.2); L.add(k); const h = mesh(new THREE.CylinderGeometry(.09 * s, .12 * s, .6 * s, 6), m, false); h.position.set(x, 2.15, -.2); L.add(h); };
+  kolb(-1.1, farbe2[0]); kolb(.2, farbe2[1], .8); const rohr = box(1.3, .07, .07, TU.gold(), -.45, 2.4, -.2); L.add(rohr); const au = mesh(new THREE.CylinderGeometry(.22, .17, .5, 7), farbe2[1], false); au.position.set(1.1, 1.38, -.2); L.add(au);
+  for (const x of [-1.1, .2]) TURM.quellen.push({ lok: [L, ox, oz, ry, x, 2.55, -.2], farbe: x < 0 ? 0 : 1, rate: .45 });
+  // Kraeuterbuendel am Balken
+  for (let i = 0; i < 7; i++) L.add(box(.18, .5, .18, mat(i % 2 ? "laub" : "laub2"), -2.9 + i * .98, 3.2, 2.1));
+  // Kessel auf Feuer vor dem Schuppen
+  const K = new THREE.Group(); for (let i = 0; i < 4; i++) { const h = box(.1, .1, 1.0, mat("stamm"), 0, .14, 0); h.rotation.y = i * .8; K.add(h); }
+  const fl = mesh(new THREE.ConeGeometry(.32, .8, 6), new THREE.MeshBasicMaterial({ color: 0xffa040 }), false); fl.position.y = .55; K.add(fl);
+  for (const a of [0, 2.1, 4.2]) { const b = box(.1, .9, .1, mat(0x2c2c32), Math.cos(a) * .85, .45, Math.sin(a) * .85); b.rotation.z = Math.cos(a) * -.3; b.rotation.x = Math.sin(a) * .3; K.add(b); }
+  const kes = mesh(new THREE.SphereGeometry(.95, 10, 7, 0, Math.PI * 2, 0, Math.PI * .62), mat(0x24242a)); kes.rotation.x = Math.PI; kes.position.y = 1.55; K.add(kes);
+  const rim = mesh(new THREE.TorusGeometry(.93, .09, 5, 12).rotateX(Math.PI / 2), mat(0x15151a)); rim.position.y = 1.35; K.add(rim);
+  const bruehe = mesh(new THREE.CircleGeometry(.88, 12).rotateX(-Math.PI / 2), farbe2[0], false); bruehe.position.y = 1.36; K.add(bruehe);
+  K.position.set(-1.0, .2, 4.6); L.add(K); TURM.quellen.push({ lok: [L, ox, oz, ry, -1.0, 1.6, 4.6], farbe: 0, rate: 1, gross: true });
+  const K2 = K.clone(); K2.scale.setScalar(.7); K2.position.set(2.2, .2, 4.2); const l2 = K2.children.find(c => c.geometry && c.geometry.type === "CircleGeometry"); if (l2) l2.material = farbe2[1]; L.add(K2); TURM.quellen.push({ lok: [L, ox, oz, ry, 2.2, 1.2, 4.2], farbe: 1, rate: .7, gross: true });
+  // Kraeuterbeete (3 erhoehte Beete, bunte Tupfer)
+  for (let b = 0; b < 3; b++) { const bx = -3.2 + b * 3.2, bz = 8.0; L.add(box(2.6, .42, 1.2, ho, bx, .21, bz)); L.add(box(2.4, .1, 1.0, mat("erdeDunkel"), bx, .45, bz));
+    for (let i = 0; i < 6; i++) { const k = mesh(new THREE.IcosahedronGeometry(.17, 0), mat(i % 2 ? "laub" : "laub2")); k.position.set(bx - 1.0 + i * .4, .62, bz + (i % 2 ? .2 : -.2)); k.scale.y = .8; L.add(k); }
+    for (let i = 0; i < 3; i++) { const k = mesh(new THREE.IcosahedronGeometry(.08, 0), [TU.vio(), TU.rot(), TU.tuerkis()][(b + i) % 3], false); k.position.set(bx - .7 + i * .7, .8, bz); L.add(k); } }
+  for (const [x, z] of [[4.7, 2.5], [4.7, 3.4]]) { const f = fass(); f.position.set(x, 0, z); L.add(f); }
+  L.position.set(ox, 0, oz); L.rotation.y = ry; g.add(L); return L; }
+
+function tuTurmA(g) {   // "Der verdrehte Dorn": gedrehter, schiefer Stein-Turm, Holzerker, krummes Schieferdach, Observatorium, Kristallkrone
+  const N = 10, H = 3.0, r0 = 4.4, r1 = 2.35, cxF = t => 2.4 * Math.sin(t * 3.2), czF = t => 1.4 * Math.sin(t * 2.3 + 1);
+  g.add(box(12, .9, 12, mat("steinDunkel"), 0, .15, 0));
+  for (let i = 0; i < N; i++) { const t = i / (N - 1), r = r0 + (r1 - r0) * t, cx = cxF(t), cz = czF(t), s = mesh(new THREE.CylinderGeometry(r * .93, r, H + .2, 8), i % 2 ? TU.stein() : TU.stein2()); s.position.set(cx, .6 + i * H + H / 2, cz); s.rotation.y = i * .27; g.add(s);
+    const b = mesh(new THREE.CylinderGeometry(r * 1.06, r * 1.06, .2, 8), mat("holzDunkel")); b.position.set(cx, .6 + (i + 1) * H, cz); b.rotation.y = i * .27; g.add(b);
+    for (const k of [0, 1]) { const a = i * 1.9 + k * 3.1, R = r * .96 + .05; tuFenster(g, cx + Math.cos(a) * R, .6 + i * H + H * .5, cz + Math.sin(a) * R, -a + Math.PI / 2, .46, .8); }
+    if (i % 3 === 1) { const a = i * 2.3, R = r + .9; tuErker(g, cx + Math.cos(a) * R, .6 + i * H + 1.2, cz + Math.sin(a) * R, -a + Math.PI / 2, .95); } }
+  const ty = .6 + N * H, tx = cxF(1), tz = czF(1);
+  tuBalkon(g, cxF(.8), czF(.8), .6 + 7.6 * H, 4.0, 0.3);
+  tuSpitze(g, tx, tz, ty, r1 * 1.08, 9.0, 8, 2.2, TU.schiefer(), 7); g.userData.spitze = [tx + 2.2, ty + 9.0 + 1.9, tz + .8];
+  tuKristall(g, tx + 2.2, ty + 11.6, tz + .8, 1.5, TU.vio()); g.userData.kristall = [tx + 2.2, ty + 11.6, tz + .8];
+  for (const [dx, dz] of [[1.2, 0], [-1.2, 0], [0, 1.2], [0, -1.2]]) { const s = mesh(new THREE.CylinderGeometry(.04, .04, 2.3, 4), mat("holzDunkel")); s.position.set(tx + 2.2 + dx * .5, ty + 10.2, tz + .8 + dz * .5); s.rotation.z = -dx * .2; s.rotation.x = dz * .2; g.add(s); }
+  const tuer = new THREE.Group(); tuer.add(box(1.5, 2.3, .3, mat("holzDunkel"), 0, 1.15, 0)); tuer.add(box(1.9, .22, .5, mat("stamm"), 0, 2.4, 0)); for (const s of [-1, 1]) tuer.add(box(.2, 2.4, .5, mat("stamm"), s * .85, 1.2, 0)); tuer.position.set(0, .6, r0 * .95 + .1); g.add(tuer);
+  g.userData.hoehe = ty + 12; g.userData.tuer = [0, 0, r0 * .95 + 1.6]; g.userData.lab = [10.5, -1.5, -.5]; g.userData.orbit = { typ: "buch", n: 9, r: 6.8, y: ty + 5.5, c: [tx + 1.2, tz + .4], lang: 36 }; }
+
+function tuTurmB(g) {   // "Die Sternwarte": breiter, leicht geneigter Rundturm, aussen laufende Wendeltreppe, Kupferkuppel mit Spalt + grosses Fernrohr
+  const N = 7, H = 3.4, r0 = 5.2, r1 = 3.9; { const sk = mesh(new THREE.CylinderGeometry(7, 7.6, 1.2, 14), mat("steinDunkel")); sk.position.y = .2; g.add(sk); }
+  const lean = .028; const g2 = new THREE.Group(); g2.rotation.z = -lean; g.add(g2);
+  for (let i = 0; i < N; i++) { const t = i / (N - 1), r = r0 + (r1 - r0) * t; const s = mesh(new THREE.CylinderGeometry(r * .97, r, H + .1, 14), i % 2 ? TU.stein() : TU.stein2()); s.position.y = .8 + i * H + H / 2; g2.add(s);
+    const b = mesh(new THREE.CylinderGeometry(r * 1.04, r * 1.04, .22, 14), TU.schiefer()); b.position.y = .8 + (i + 1) * H; g2.add(b);
+    for (let k = 0; k < 3; k++) { const a = i * .7 + k * 2.1 + 1; tuFenster(g2, Math.cos(a) * (r * .985), .8 + i * H + H * .55, Math.sin(a) * (r * .985), -a + Math.PI / 2, .5, 1.0); } }
+  // Wendeltreppe aussen (breite Stufen, Holzgelaender)
+  const ST = 52; for (let i = 0; i < ST; i++) { const a = i * .24 + .4, t = i / ST, r = r0 + (r1 - r0) * (.8 * t) + .9, y = .9 + t * (N - 1) * H; const s = box(1.7, .22, 1.0, mat("holz"), Math.cos(a) * r, y, Math.sin(a) * r); s.rotation.y = -a + Math.PI / 2; g2.add(s);
+    if (i % 4 === 0) g2.add(box(.1, 1.1, .1, mat("holzDunkel"), Math.cos(a) * (r + .8), y + .6, Math.sin(a) * (r + .8))); }
+  const ty = .8 + N * H; const ring = mesh(new THREE.CylinderGeometry(r1 + .6, r1 + .6, .5, 14), mat("holz")); ring.position.y = ty + .25; g2.add(ring);
+  const kuppel = mesh(new THREE.SphereGeometry(r1 + .35, 16, 9, 0, Math.PI * 2, 0, Math.PI / 2), TU.kupfer()); kuppel.position.y = ty + .5; g2.add(kuppel);
+  for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; const r = mesh(new THREE.TorusGeometry(r1 + .37, .07, 4, 12, Math.PI).rotateY(a), TU.gold()); r.position.y = ty + .5; g2.add(r); }
+  const spalt = box(1.5, 2.6, r1 * 1.3, TU.tuerkis(), r1 * .55, ty + 2.3, 0); spalt.rotation.z = -.35; g2.add(spalt);   // leuchtender Spalt der Kuppel
+  const f = new THREE.Group(), tube = mesh(new THREE.CylinderGeometry(.34, .5, 6.6, 10), TU.kupfer()); tube.rotation.z = Math.PI / 2 - .9; tube.position.set(1.4, 1.4, 0); f.add(tube);
+  const lin = mesh(new THREE.CylinderGeometry(.5, .5, .1, 10), TU.tuerkis()); lin.rotation.z = Math.PI / 2 - .9; lin.position.set(4.35, 4.0, 0); f.add(lin); f.add(mesh(new THREE.CylinderGeometry(.6, .6, .35, 8), TU.gold()));
+  f.position.set(r1 * .3, ty + 2.1, 0); g2.add(f);
+  for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4; const p = mesh(new THREE.CylinderGeometry(.22, .3, 3.2, 6), TU.stein2()); p.position.set(Math.cos(a) * (r1 + 2.6), ty - 1.4, Math.sin(a) * (r1 + 2.6)); g2.add(p); tuKristall(g2, Math.cos(a) * (r1 + 2.6), ty + .9, Math.sin(a) * (r1 + 2.6), .55, i % 2 ? TU.vio() : TU.tuerkis()); }
+  const tuer = new THREE.Group(); tuer.add(box(1.6, 2.4, .35, mat("holzDunkel"), 0, 1.2, 0)); for (const s of [-1, 1]) tuer.add(box(.22, 2.5, .5, mat("stamm"), s * .9, 1.25, 0)); tuer.add(box(2.0, .24, .5, mat("stamm"), 0, 2.5, 0)); tuer.position.set(0, .8, -r0 - 0.15); tuer.rotation.y = Math.PI; g.add(tuer);
+  g.userData.hoehe = ty + 6; g.userData.tuer = [0, 0, -r0 - 1.8]; g.userData.lab = [-11.5, 3.5, Math.PI * .5 + .3]; g.userData.kristall = [Math.sin(lean) * ty, ty + 3, 0];
+  g.userData.orbit = { typ: "buch", n: 12, r: 8.6, y: ty + 4.2, c: [Math.sin(lean) * ty, 0], lang: 44 }; g.userData.spitze = [Math.sin(lean) * ty, ty + 4.5, 0]; }
+
+function tuTurmC(g) {   // "Der windschiefe Zauberstapel": zwei schiefe Tuerme mit Bruecke, viele Spitzdaecher, Holzerker, Hangelaternen, Kristallbaum + schwebende Runensteine
+  const stack = (x0, z0, N, r0, r1, H, drehen, lean, seed) => { let px = x0, pz = z0; const ox = []; for (let i = 0; i < N; i++) { const t = i / (N - 1), r = r0 + (r1 - r0) * t, s = mesh(new THREE.CylinderGeometry(r * .9, r, H + .15, i % 3 === 0 ? 6 : 8), i % 2 ? TU.stein() : TU.stein2());
+      px = x0 + lean[0] * Math.sin(t * 2.6 + seed) * 1.8 + t * lean[0] * 1.6; pz = z0 + lean[1] * Math.sin(t * 1.9 + seed * 2) * 1.5 + t * lean[1];
+      s.position.set(px, .6 + i * H + H / 2, pz); s.rotation.y = i * drehen; s.rotation.z = Math.sin(i * 1.7 + seed) * .035; g.add(s);
+      const b = mesh(new THREE.CylinderGeometry(r * 1.15, r * .95, .3, i % 3 === 0 ? 6 : 8), mat("holz")); b.position.set(px, .6 + (i + 1) * H - .1, pz); b.rotation.y = i * drehen; g.add(b);
+      tuFenster(g, px + Math.cos(i * 2.4 + seed) * r * .95, .6 + i * H + H * .5, pz + Math.sin(i * 2.4 + seed) * r * .95, -(i * 2.4 + seed) + Math.PI / 2, .46, .8);
+      if (i % 2 === 0 && i > 0) { const a = i * 1.3 + seed * 3, R = r + .9; tuErker(g, px + Math.cos(a) * R, .6 + i * H + 1, pz + Math.sin(a) * R, -a + Math.PI / 2, .85); }
+      ox.push([px, pz]); }
+    return [px, pz, .6 + N * H, r1]; };
+  g.add(box(14, .9, 11, mat("steinDunkel"), 1, .15, 0));
+  const [ax, az, ay, ar] = stack(-2.5, 0, 9, 3.9, 2.3, 3.0, .31, [1, -1], 0.5), [bx, bz, by, br] = stack(5.8, -.5, 6, 3.2, 2.0, 3.0, -.4, [-.9, 1], 2);
+  tuSpitze(g, ax, az, ay, ar * 1.12, 8.5, 6, -1.6, TU.schiefer(), 6); tuSpitze(g, bx, bz, by, br * 1.2, 6.5, 6, 1.4, mat(0x4a2f5e), 5);
+  for (const [x, y, z, s] of [[ax + 1.5, ay + 2.2, az + 1, .8], [bx - 1.3, by + 2.0, bz - .8, .65]]) { const w = mesh(new THREE.ConeGeometry(.4 * s, 1.3 * s, 5), TU.schiefer()); w.position.set(x, y, z); w.rotation.z = .5; g.add(w); }
+  const bry = .6 + 5 * 3.0, a1 = [ax + 2.3, bry, az], b1 = [bx - 2.1, bry - .1, bz];   // Bruecke zwischen den Tuermen
+  const L = Math.hypot(b1[0] - a1[0], b1[2] - a1[2]), br_ = box(L, .22, 1.4, mat("holz"), (a1[0] + b1[0]) / 2, bry, (a1[2] + b1[2]) / 2); br_.rotation.y = -Math.atan2(b1[2] - a1[2], b1[0] - a1[0]); g.add(br_);
+  for (const s of [-1, 1]) { const r = box(L, .09, .09, mat("holzDunkel"), (a1[0] + b1[0]) / 2, bry + 1.0, (a1[2] + b1[2]) / 2 + s * .7); r.rotation.y = br_.rotation.y; g.add(r); }
+  // Hangelaternen (leuchten tags)
+  for (const [x, y, z] of [[ax + 2.9, .6 + 3 * 3.0, az + 1], [bx + 2.0, .6 + 3 * 3.0, bz + 2], [bx - 3.3, bry - 2.5, bz - 1.2], [ax - 3.3, .6 + 6 * 3, az]]) { g.add(box(.04, 1.0, .04, mat("holzDunkel"), x, y + .5, z)); const l = mesh(new THREE.OctahedronGeometry(.28, 0), TU.gold(), false); l.position.set(x, y, z); g.add(l); }
+  // Kristallbaum auf dem hohen Turm: Holzzinken halten ein Kristallbuendel
+  const cy = ay + 9.8; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const s = mesh(new THREE.CylinderGeometry(.05, .08, 2.4, 4), mat("holzDunkel")); s.position.set(ax - 1.6 + dx * .55, cy - 1.0, az + dz * .55); s.rotation.z = -dx * .22; s.rotation.x = dz * .22; g.add(s); }
+  tuKristall(g, ax - 1.6, cy + .6, az, 1.8, TU.vio(), 1.15); tuKristall(g, ax - 1.6 + .9, cy - .5, az + .6, .8, TU.tuerkis()); tuKristall(g, ax - 1.6 - .9, cy - .3, az - .5, .7, TU.rot());
+  g.userData.kristall = [ax - 1.6, cy + .8, az]; g.userData.spitze = [ax - 1.6, cy + 3.2, az];
+  tuBalkon(g, bx, bz, by - 2.2, 3.3, 1, true);
+  const tuer = new THREE.Group(); tuer.add(box(1.6, 2.2, .3, mat("holzDunkel"), 0, 1.1, 0)); for (const s of [-1, 1]) tuer.add(box(.2, 2.3, .5, mat("stamm"), s * .9, 1.15, 0)); tuer.add(box(2.0, .22, .5, mat("stamm"), 0, 2.3, 0)); tuer.position.set(-.8, .6, 4.4); g.add(tuer);
+  g.userData.hoehe = cy + 4; g.userData.tuer = [-.8, 0, 6.2]; g.userData.lab = [-12.5, -2.5, Math.PI]; g.userData.orbit = { typ: "stein", n: 10, r: 7.2, y: cy - 1.2, c: [ax - 1.6, az], lang: 32 }; }
+
+Object.assign(BAUTEN, {
+  zauberturm(gd) {
+    const v = ["A", "B", "C"].includes((P.get("turm") || "").toUpperCase()) ? P.get("turm").toUpperCase() : (gd.var || "A"), g = new THREE.Group(); TURM.var = v; TURM.quellen.length = 0;
+    ({ A: tuTurmA, B: tuTurmB, C: tuTurmC })[v](g);
+    const lab = g.userData.lab, L = tuLabor(g, v, lab[0], lab[1], lab[2]);
+    g.userData.festeHoehe = undefined; g.userData.kamin = undefined; TURM.g = g; g.userData.var = v;
+    // Lichtsaeule als Landmarke in der Totale (hauchduenner, additiver Zylinder; nur Variante A und C, B hat das Kuppellicht)
+    if (v !== "B") { const k = g.userData.kristall, bm = mesh(new THREE.CylinderGeometry(.5, 1.3, 34, 8, 1, true), new THREE.MeshBasicMaterial({ color: v === "A" ? 0xb46cff : 0x8affc8, transparent: true, opacity: .3, depthWrite: false, blending: THREE.AdditiveBlending, side: THREE.DoubleSide }), false); bm.position.set(k[0], k[1] + 17, k[2]); g.add(bm); }
+    return g; },
+});
+// ==== /TURM-1910:BAUTEN ====
+
 function bauStufe(g, p) {   // Zeitraffer: 0 nichts, .25 Fundament, .6 Waende, .85 Dach, 1 alles
   const st = g.userData.stufen, k = (a, b) => klemm((p - a) / (b - a));
   for (const o of st.fundament) { const f = k(0, .2); o.visible = f > 0; o.scale.y = Math.max(.01, f); }
@@ -1476,6 +1610,77 @@ window.__zusagen = () => ({ pos: ZUS.pos, falke: ZUS.falke ? { sichtbar: ZUS.fal
 window.__zusagen_t0 = s => { ZUS.t0 = s; }; window.__zusagen_frieren = s => { ZUS.frieren = s; };   // nur Pruefung: Zeitversatz, um den Falken im Flug zu zeigen
 window.__falke_zeit = t => { const F = ZUS.falke; if (!F) return null; ZUSAGEN_LEBEN(t); return { flug: F.g.visible, p: F.g.visible ? [F.g.position.x, F.g.position.y, -F.g.position.z] : null }; };
 // ==== /ZUSAGEN-1810:FIGUREN ====
+// ==== TURM-1910:FIGUREN (patches/turm_1910.py) — Hausherr + Gelehrte, schwebende Buecher/Steine, Dampf, Funken, Kristall-Leuchten, Pfad ====
+{ const TG = W_GEB.find(x => x.typ === "zauberturm");
+  if (TG && TURM.g) {
+    const g = TURM.g, ud = g.userData, W3 = (o, x, y, z) => o.localToWorld(new THREE.Vector3(x, y, z)); g.updateMatrixWorld(true);
+    const lab = g.children.find(c => c.isGroup && c.userData && c.position.x === ud.lab[0] && c.position.z === ud.lab[1]) || g;
+    const kr = W3(g, ...ud.kristall), sp = W3(g, ...ud.spitze); TURM.pos = { u: TG.u, w: TG.w, hoehe: ud.hoehe, kristall: { u: kr.x, w: -kr.z, y: kr.y }, var: TURM.var };
+    // ---- Leuchten (auch bei Tag): Halo-Sprites um den Kristall, pulsieren
+    const farbeV = { A: 0xb46cff, B: 0x59ffd6, C: 0xc47cff }[TURM.var];
+    TURM.halo.push({ sp: glanz(kr.clone(), farbeV, 14, .85), g0: 14 }, { sp: glanz(kr.clone().add(new THREE.Vector3(0, .5, 0)), 0xffffff, 5.5, .8), g0: 5.5 });
+    for (const h of TURM.halo) GLANZ.push({ sp: h.sp, tag: .75, nacht: .95 });
+    // ---- Schwebende Buecher / Runensteine (1 InstancedMesh, Farben je Instanz)
+    const O = ud.orbit, oc = W3(g, O.c[0], 0, O.c[1]);
+    const geo = O.typ === "buch" ? new THREE.BoxGeometry(1.1, .2, .8) : new THREE.OctahedronGeometry(.62, 0), im = new THREE.InstancedMesh(geo, new THREE.MeshStandardMaterial({ flatShading: true, roughness: .6, emissive: 0x2a1850, emissiveIntensity: .55 }), O.n);
+    const cols = O.typ === "buch" ? [0x8a2b3a, 0x2b5a8a, 0x3b7a4a, 0x7a4a8a, 0xb88a2a] : [0x6a6a78, 0x7a7a8a, 0x58586a]; const cc = new THREE.Color(); for (let i = 0; i < O.n; i++) im.setColorAt(i, cc.setHex(cols[i % cols.length]));
+    im.castShadow = true; im.frustumCulled = false; im.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(im); TURM.orbit = { im, O, cx: oc.x, cz: oc.z, y0: oc.y + O.y - ud.hoehe * 0 };
+    if (O.typ === "stein") { const rim = new THREE.InstancedMesh(new THREE.OctahedronGeometry(.3, 0), new THREE.MeshBasicMaterial({ color: 0x9a7cff }), O.n); rim.frustumCulled = false; rim.instanceMatrix.setUsage(THREE.DynamicDrawUsage); scene.add(rim); TURM.orbit.glut = rim; }
+    // ---- Partikel: Dampf (gruen/violett/tuerkis) und Funken als EIN Points-Objekt je Art mit eigenem Shader (Groesse + Alpha je Teilchen)
+    const SH = size => new THREE.ShaderMaterial({ transparent: true, depthWrite: false, uniforms: { map: { value: rauchTex }, px: { value: 10 } },
+      vertexShader: "attribute float gr; attribute float al; attribute vec3 fa; varying float vA; varying vec3 vF; uniform float px; void main(){ vA = al; vF = fa; vec4 mv = modelViewMatrix * vec4(position,1.0); gl_PointSize = gr * px; gl_Position = projectionMatrix * mv; }",
+      fragmentShader: "uniform sampler2D map; varying float vA; varying vec3 vF; void main(){ vec4 t = texture2D(map, gl_PointCoord); gl_FragColor = vec4(vF, t.a * vA); }" });
+    const pts = (n, size) => { const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.BufferAttribute(new Float32Array(n * 3), 3)); geo.setAttribute("gr", new THREE.BufferAttribute(new Float32Array(n), 1));
+      geo.setAttribute("al", new THREE.BufferAttribute(new Float32Array(n), 1)); geo.setAttribute("fa", new THREE.BufferAttribute(new Float32Array(n * 3), 3)); const p = new THREE.Points(geo, SH(size)); p.frustumCulled = false; scene.add(p); return p; };
+    const Q = TURM.quellen.map(q => { const w = W3(q.lok[0], q.lok[4], q.lok[5], q.lok[6]); return { x: w.x, y: w.y, z: w.z, f: q.farbe, rate: q.rate, gross: !!q.gross }; });
+    const DF = [new THREE.Color(0x58e04a), new THREE.Color(0xa65cff), new THREE.Color(0x3fe8c8)], VF = TURM.var === "B" ? [1, 0] : TURM.var === "C" ? [0, 1] : [0, 2];
+    const nD = 110, nF = 46; TURM.dampf = { p: pts(nD, 1), n: nD, q: Q, DF, VF }; TURM.funken = { p: pts(nF, 1), n: nF, c: [W3(g, 0, 0, 0), W3(lab, 0, 0, 7)], ud };
+    TURM.px = () => innerHeight / (cam.top - cam.bottom);
+    // ---- Pfad zum Hauptweg (Erdband aus Quadern, 1 InstancedMesh) + Baumfreiheit
+    { let best = null; const door = W3(g, ...ud.tuer), du = door.x, dw = -door.z;
+      for (const wg of W_WEGE) for (let i = 0; i < wg.linie.length - 1; i++) { const [a0, a1] = wg.linie[i], [b0, b1] = wg.linie[i + 1], L = Math.hypot(b0 - a0, b1 - a1), n = Math.max(1, Math.ceil(L / 2));
+        for (let k = 0; k <= n; k++) { const u = a0 + (b0 - a0) * k / n, w = a1 + (b1 - a1) * k / n, d = Math.hypot(u - du, w - dw); if (!best || d < best.d) best = { d, u, w }; } }
+      if (best && best.d < 90) { const n = Math.ceil(best.d / 1.6), pm = new THREE.InstancedMesh(new THREE.BoxGeometry(1.9, .1, 1.9), mat("erde"), n), m4 = new THREE.Matrix4(), q4 = new THREE.Quaternion(), v3 = new THREE.Vector3(), s3 = new THREE.Vector3(1, 1, 1);
+        for (let i = 0; i < n; i++) { const t = i / (n - 1 || 1), u = du + (best.u - du) * t + Math.sin(t * 9 + 1) * .9 * Math.sin(t * Math.PI), w = dw + (best.w - dw) * t;
+          m4.compose(v3.set(u, hoehe(u, w) + .04, -w), q4.setFromEuler(new THREE.Euler(0, i * .9, 0)), s3.set(1 + .3 * Math.sin(i * 2.1), 1, 1 + .25 * Math.cos(i * 1.7))); pm.setMatrixAt(i, m4); if (i % 2 === 0) SPERRE.push([u, w, 1.8]); }
+        pm.receiveShadow = true; scene.add(pm); TURM.pos.pfad = { n, laenge: Math.round(best.d), zu: [Math.round(best.u), Math.round(best.w)] }; } }
+    // ---- Figuren: Hausherr an der Tuer, Gelehrte vor dem Turm und im Labor
+    const WF = W_FIG.filter(f => f.typ === "turmwaechter" || f.typ === "gelehrter"), HUT = [0x4a2f7a, 0x2f4f8a, 0x1f6a5a, 0x7a2f5a, 0x3a3a52, 0x8a5a1f];
+    const zm = (o, n) => { const alt = R; R = rng(1910 + n * 31); const m = mensch(o); R = alt; MENSCHEN.splice(MENSCHEN.indexOf(m), 1); return m; };
+    const hutSetzen = (m, farbe, hoch) => { const ob = m.userData.m.ober, hm = farbe_(farbe); const kegel = mesh(new THREE.ConeGeometry(.2, hoch, 7), hm); kegel.position.set(0, 1.12 + hoch / 2 - .12, 0); kegel.rotation.z = .15; ob.add(kegel);
+      const rand = mesh(new THREE.CylinderGeometry(.34, .34, .03, 9), hm); rand.position.set(0, 1.04, 0); ob.add(rand); ob.add(box(.38, .04, .38, farbe_(0xd9b04a), 0, 1.07, 0).rotateY(.4)); };
+    const farbe_ = c => mat(c);
+    const spots = [], doorL = ud.tuer, labL = [[-2.4, 0, 4.9], [.3, 0, 6.0], [1.2, 0, 3.4], [3.4, 0, 5.0], [-3.6, 0, 6.6], [0, 0, 1.2]], labW = W3(lab, 0, 0, 5);
+    const tw = W3(g, 0, 0, 0), dW = W3(g, doorL[0], 0, doorL[2]);   // Gelehrte stehen locker rund um den Turm (Goldener Winkel), nicht im Labor und nicht auf dem Zugangspfad
+    for (let k = 0; spots.length < 80 && k < 600; k++) { const a = k * 2.399963, r = 8.5 + 1.3 * Math.sqrt(k), u = tw.x + Math.cos(a) * r, w = -tw.z + Math.sin(a) * r;
+      if (Math.hypot(u - labW.x, w + labW.z) < 8 || Math.hypot(u - dW.x, w + dW.z) < 3 || Math.abs(w - flussW(u)) < 4) continue; spots.push(new THREE.Vector3(u, 0, -w)); }
+    const labSpots = labL.map(([x, y, z]) => W3(lab, x, y, z)); const poses = ["rede", "steh", "korb", "sack", "steh", "rede"]; let si = 0, li = 0, n = 0; TURM.pos.figuren = [];
+    for (const f of WF.sort((a, b) => (b.typ === "turmwaechter") - (a.typ === "turmwaechter"))) { n++;
+      const hausherr = f.typ === "turmwaechter", ort = hausherr ? W3(g, doorL[0] - 1.3, 0, doorL[2] + .4) : (li < labSpots.length && n % 4 === 0 ? labSpots[li++] : spots[Math.min(si++, spots.length - 1)]);
+      const m = zm({ tuch: HUT[n % HUT.length], hut: false, haube: false, pose: hausherr ? "steh" : poses[n % poses.length] }, n); hutSetzen(m, HUT[(n + 2) % HUT.length], hausherr ? .8 : .55);
+      if (hausherr) { const ar = m.userData.m.arme, stab = mesh(new THREE.CylinderGeometry(.03, .04, 2.1, 5), mat("stamm")); stab.position.set(.07, -.75, .08); ar[1].add(stab); const orb = mesh(new THREE.IcosahedronGeometry(.12, 1), TU.vio(), false); orb.position.set(.07, .35, .08); ar[1].add(orb); ar[1].rotation.x = -.15; }
+      const u = ort.x, w = -ort.z; m.position.set(u, hoehe(u, w), -w); m.rotation.y = Math.atan2(TG.u - u, -(TG.w - w)) + (hausherr ? Math.PI : (n % 2 ? .6 : -.6)); scene.add(m); SPERRE.push([u, w, .9]);
+      TURM.pos.figuren.push({ h: f.handle, typ: f.typ, titel: f.titel, u: +u.toFixed(1), w: +w.toFixed(1) }); f.__ort = { u, w }; }
+  } }
+const TURM_ZEIT = { t0: 0 };
+function TURM_LEBEN(t) {
+  if (!TURM.orbit) return; if (TURM.frieren != null) t = TURM.frieren; const O = TURM.orbit, D = O.O, m4 = new THREE.Matrix4(), q = new THREE.Quaternion(), v = new THREE.Vector3(), s = new THREE.Vector3(), e = new THREE.Euler();
+  for (let i = 0; i < D.n; i++) { const a = t * 2 * Math.PI / D.lang + i / D.n * 2 * Math.PI, r = D.r * (1 + .08 * Math.sin(i * 2.3)), y = O.y0 + .9 * Math.sin(t * .9 + i * 1.7) + (i % 3) * 1.1 - 1.0;
+    e.set(.25 * Math.sin(t * .6 + i), -a + i, .35 * Math.sin(t * .8 + i * 2)); m4.compose(v.set(O.cx + Math.cos(a) * r, y, O.cz + Math.sin(a) * r), q.setFromEuler(e), s.set(1, 1, 1)); O.im.setMatrixAt(i, m4);
+    if (O.glut) { m4.compose(v.set(O.cx + Math.cos(a) * r, y, O.cz + Math.sin(a) * r), q.setFromEuler(e), s.set(.7 + .3 * Math.sin(t * 3 + i), .7 + .3 * Math.sin(t * 3 + i), .7 + .3 * Math.sin(t * 3 + i))); O.glut.setMatrixAt(i, m4); } }
+  O.im.instanceMatrix.needsUpdate = true; if (O.glut) O.glut.instanceMatrix.needsUpdate = true;
+  const pl = .92 + .12 * Math.sin(t * 2.1) + .06 * Math.sin(t * 5.3); for (const h of TURM.halo) h.sp.scale.setScalar(h.g0 * pl);
+  const px = TURM.px(), Dp = TURM.dampf, pos = Dp.p.geometry.attributes.position, gr = Dp.p.geometry.attributes.gr, al = Dp.p.geometry.attributes.al, fa = Dp.p.geometry.attributes.fa; Dp.p.material.uniforms.px.value = px;
+  for (let i = 0; i < Dp.n; i++) { const q_ = Dp.q[i % Dp.q.length], per = q_.gross ? 5.5 : 4, ph = (t / per + i * .6180339) % 1, wob = Math.sin(t * .8 + i * 1.3);
+    pos.setXYZ(i, q_.x + wob * (.25 + ph * .9) * (q_.gross ? 1 : .6), q_.y + ph * (q_.gross ? 5.4 : 3.6), q_.z + Math.cos(t * .7 + i) * (.2 + ph * .8));
+    gr.setX(i, (q_.gross ? 1.5 : 1.0) * (.5 + ph * 1.8)); al.setX(i, Math.min(1, ph * 6) * (1 - ph) * .85 * q_.rate); const c = Dp.DF[Dp.VF[q_.f]]; fa.setXYZ(i, c.r, c.g, c.b); }
+  pos.needsUpdate = gr.needsUpdate = al.needsUpdate = fa.needsUpdate = true;
+  const F = TURM.funken, fp = F.p.geometry.attributes.position, fg = F.p.geometry.attributes.gr, fl = F.p.geometry.attributes.al, ff = F.p.geometry.attributes.fa; F.p.material.uniforms.px.value = px;
+  for (let i = 0; i < F.n; i++) { const c = F.c[i % 2], a = t * (.12 + (i % 5) * .03) + i * 2.4, r = (i % 2 ? 4 : 9) + 3 * Math.sin(i * 1.7), y = (i % 2 ? 1.4 : 3.5) + 2.2 * Math.sin(t * .5 + i) + 1.4 * Math.sin(t * 1.3 + i * 3);
+    fp.setXYZ(i, c.x + Math.cos(a) * r, c.y + Math.max(.5, y) + (i % 2 ? 0 : (i % 7) * 1.2), c.z + Math.sin(a) * r); fg.setX(i, .55 + .25 * Math.sin(t * 4 + i)); fl.setX(i, .6 + .4 * Math.sin(t * 2.7 + i * 5)); const col = i % 3 === 0 ? [1, .95, .4] : i % 3 === 1 ? [.55, 1, .45] : [.8, .6, 1]; ff.setXYZ(i, col[0], col[1], col[2]); }
+  fp.needsUpdate = fg.needsUpdate = fl.needsUpdate = ff.needsUpdate = true; }
+window.__turm = () => ({ ...TURM.pos, pfad: TURM.pos.pfad || null }); window.__turm_frieren = s => { TURM.frieren = s; };
+// ==== /TURM-1910:FIGUREN ====
 for (const dk of W_DEKO) {
   if (dk.typ === "reh") { const g = reh(dk.bock); setze(g, dk.u, dk.w, dk.rot || 0); SPERRE.push([dk.u, dk.w, 1.4]); LEBEN.rehe.push({ g, u: dk.u, ph: h2(dk.u * 10, 1) * 6 }); LEBEN.wurzeln.push(g); }
   if (dk.typ === "hase") { const g = hase(); setze(g, dk.u, dk.w, 0); SPERRE.push([dk.u, dk.w, 1]); LEBEN.hasen.push({ g, u: dk.u, w: dk.w, ph: h2(dk.u * 10, 2) * 6, dir: h2(dk.w * 10, 3) * 6 }); LEBEN.wurzeln.push(g); }
@@ -1570,7 +1775,7 @@ if (CFG.tiere) { const RT = rng(90210), rr2 = (a, b) => a + RT() * (b - a), M4 =
     else if (x < .9) hasen.push([u, w, RT() * 6.283, 1]); else fuechse.push([u, w, RT() * 6.283, 1]); }
   art("rehe", () => reh(false), rehe, true); art("hasen", hase, hasen); art("fuechse", fuchs, fuechse, true);
   window.__tiere = () => TIERE.n; }
-const GEB_R = { weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0 };
+const GEB_R = { zauberturm: 9, weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0 };
 window.__inventar = () => { let pf = 0; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "CylinderGeometry") pf++; });
   return { fluss: FLUSS.mesh ? FLUSS.y.length : 0, baeume: window.__waldbaeume || 0, baum_teile: window.__baeume || 0, huetten: LAGE.length,
     huetten_im_wasser: LAGE.filter(l => Math.abs(l.w - flussW(l.u)) < 2.6).length,
@@ -1635,7 +1840,7 @@ fertig(c);
 function alltagBauen() {
   const MAX = 72, hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
   const HALLE = LAGE.find(l => l.typ === "langhaus"), NEU = new Set(DATEN.neu || []);
-  const ROLLE = new Set([...W_GEB.filter(g => g.ober || g.hexe).map(g => g.ober || g.hexe), ...(DATEN.figuren || []).filter(f => f.typ === "katze" || ["paar", "hauptmann", "falkner", "hirte", "mueller"].includes(f.typ)).map(f => f.handle), ...W_GEB.filter(g => g.typ === "holzturm" && g.wache).map(g => g.wache)]);   // als Katze unterwegs, nicht zusaetzlich als Mensch
+  const ROLLE = new Set([...W_GEB.filter(g => g.ober || g.hexe).map(g => g.ober || g.hexe), ...(DATEN.figuren || []).filter(f => f.typ === "katze" || ["paar", "hauptmann", "falkner", "hirte", "mueller", "turmwaechter", "gelehrter"].includes(f.typ)).map(f => f.handle), ...W_GEB.filter(g => g.typ === "holzturm" && g.wache).map(g => g.wache)]);   // als Katze unterwegs, nicht zusaetzlich als Mensch
   const leute = LAGE.filter(l => l.bewohner.length).flatMap(l => l.bewohner.filter(h => !ROLLE.has(h)).map(h => ({ h, haus: l, z: hash(h) })));
   const seite = p => Math.sign(p.w - flussW(p.u)) || 1, FU = 4.5, FURT = s => ({ u: FU, w: flussW(FU) + s * 3.1 });
   const weg = (a, b) => { const pts = seite(a) === seite(b) ? [a, b] : [a, FURT(seite(a)), FURT(seite(b)), b]; let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i].u - pts[i - 1].u, pts[i].w - pts[i - 1].w); return { pts, L }; };
@@ -1808,7 +2013,7 @@ const K = { b: startB, u: (RU[0] + RU[1]) / 2, w: (RW[0] + RW[1]) / 2 + .02 * st
 const START = { b: K.b, u: K.u, w: K.w };
 const ALLE_U = [0, ...LAGE.map(l => l.u), ...DOERFER.flatMap(d => [d.u - 250, d.u + 250])], B_WEIT = (Math.max(...ALLE_U) - Math.min(...ALLE_U)) * 1.12 + 60;   // 18.10. Fix: weit genug fuer beide Doerfer
 const B_MIN = 12, B_MAX = Math.min(Math.max(60, startB * 1.4, B_WEIT), TER * .5);   // nie weiter heraus, als Gelaende da ist
-function ansicht() { klemmen(); const z = K.b; kamera(c, z, K.u, K.w + .10 * z * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180) * .5, -4, 33); }
+function ansicht() { klemmen(); const z = K.b; kamera(c, z, K.u, K.w + .10 * z * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180) * .5, window.__az ?? -4, 33, window.__zy || 0); }   // TURM-1910 (nur Pruefung: Orbit)
 const zeiger = new Map(); let zieh = null, pinch = null;
 const cv = renderer.domElement; cv.style.touchAction = "none";
 cv.addEventListener("pointerdown", e => { zeiger.set(e.pointerId, [e.clientX, e.clientY]); K.ziel = null; if (zeiger.size === 1) zieh = [e.clientX, e.clientY, K.u, K.w]; else { zieh = null; const [a, b] = [...zeiger.values()]; pinch = [Math.hypot(a[0] - b[0], a[1] - b[1]), K.b]; } });
@@ -1856,6 +2061,12 @@ if (FIG.katze) { neuSchild({ u: 0, w: 0, dach: new THREE.Vector3(), groesse: 3, 
   const MP = ZUS.pos.muehle; if (MP) Z(MP.gd.u, MP.gd.w, hoehe(MP.gd.u, MP.gd.w) + 7.2, `<span>Watermill</span><span class="klein">the wheel turns in the stream</span>`, "arbeit", 9, [], PRIO.arbeit + 5);
   const WH = W_GEB.find(g => g.id === "wachhaus-1"); if (WH) Z(WH.u, WH.w, hoehe(WH.u, WH.w) + 5.4, `<span>Guardhouse</span><span class="klein">${esc(WH.tor || "main gate")}</span>`, "arbeit", 9, [], PRIO.arbeit + 5); }
 // ==== /ZUSAGEN-1810:SCHILDER ====
+// ==== TURM-1910:SCHILDER (patches/turm_1910.py) ====
+if (TURM.pos && TURM.pos.figuren) {
+  const T = TURM.pos, hd = (h, t) => `<span class="hd">@${esc(h)}</span><span class="klein">${esc(t)}</span>`;
+  neuSchild({ u: T.u, w: T.w, dach: new THREE.Vector3(T.u, hoehe(T.u, T.w) + T.hoehe * .55, -T.w), groesse: 14, bewohner: [], prio: PRIO.platz + 8 }, `<span>Alchemy &amp; Research Tower</span><span class="klein">the supernatural, studied in plain daylight</span>`, "arbeit");
+  for (const f of T.figuren) { const o = f.typ === "turmwaechter"; neuSchild({ u: f.u, w: f.w, dach: new THREE.Vector3(f.u, hoehe(f.u, f.w) + 3.4, -f.w), groesse: 6, bewohner: [f.h], prio: o ? PRIO.haus + 5 : PRIO.haus - 4 }, hd(f.h, f.titel)); } }
+// ==== /TURM-1910:SCHILDER ====
 for (const bp of W_BP) { const y = hoehe(bp.u, bp.w) + 1.6;
   if (bp.fuer_handle) neuSchild({ u: bp.u, w: bp.w, dach: new THREE.Vector3(bp.u, y, -bp.w), groesse: 6, bewohner: [], platz: bp.fuer_handle, prio: PRIO.platz }, `<span class="hd">@${esc(bp.fuer_handle)}</span><span class="klein">cabin coming</span>`, "platz");
  }
@@ -1931,6 +2142,7 @@ const ease = t => t < .5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
 let letzt = 0;
 window.__katze = () => FIG.katze ? { u: FIG.katze.g.position.x, w: -FIG.katze.g.position.z } : null;
 function figurenLeben(t) {
+  TURM_LEBEN(t);   // TURM-1910
   ZUSAGEN_LEBEN(t);   // ZUSAGEN-1810
   for (const f of FIG.flaggen || []) { f.tuch.rotation.y = .35 * Math.sin(t * 1.3 + f.ph) + .15 * Math.sin(t * 3.1); f.tuch.scale.x = .95 + .05 * Math.sin(t * 4 + f.ph); }
   for (const s of FIG.schaukeln || []) { const z = (t + s.ph) % 40; s.kind.visible = z < 22; s.pendel.rotation.z = (s.kind.visible ? .35 : .12) * Math.sin(t * 1.9); }
