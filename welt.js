@@ -919,18 +919,44 @@ const BAUTEN = {
     for (let i = 0; i < 3; i++) { const sp = mesh(new THREE.CylinderGeometry(.05, .05, .12, 6), mat(farben[i])); sp.position.set(.6 + i * .12, .97, -.25); g.add(sp); }
     const pupp = new THREE.Group(); pupp.add(box(.06, 1.2, .06, mat("stamm"), 0, .6, 0)); const torso = mesh(new THREE.CylinderGeometry(.22, .18, .6, 8), mat(0x6a3a5a)); torso.position.y = 1.35; pupp.add(torso); pupp.position.set(1.4, 0, .1); g.add(pupp);
     return g; },
-  mine(gd) {   // 19.10. abends: Stolleneingang mit Holzrahmen in eigener Felsnase, Schienen + 2 Loren, Steinhaufen, Laterne
-    const g = new THREE.Group(), fels = mat(0x5f5b4f), fd = mat(0x4b473d), holz = mat("holz"), hd = mat("holzDunkel"), stein = mat("stein");
-    for (const [x, y, z, s] of [[-2.1, 1.3, -1.2, 1.5], [2.2, 1.2, -1.2, 1.5], [0, 3.6, -1.6, 1.6]]) { const f = mesh(new THREE.DodecahedronGeometry(s, 0), x ? fels : fd); f.position.set(x, y, z); f.scale.set(1, .8, .7); g.add(f); }   // nur Rahmensteine; die Wand ist der Berg
-    g.add(box(2.2, 2.6, .5, mat(0x141210), 0, 1.3, -.35));   // dunkle Oeffnung
-    for (const x of [-1.25, 1.25]) g.add(box(.32, 2.9, .32, holz, x, 1.45, 0)); g.add(box(3.0, .36, .4, holz, 0, 3.0, 0)); g.add(box(.8, .45, .06, hd, 0, 3.0, .22));
-    const lat = box(.22, .32, .22, mat(0xffc46a), 1.3, 2.4, .35); g.add(lat);
-    for (const x of [-.45, .45]) g.add(box(.07, .07, 11, mat(0x6a6a6a), x, .12, 5.2)); for (let i = 0; i < 12; i++) g.add(box(1.3, .08, .22, hd, 0, .06, i * .95));
-    const lore = z => { const l = new THREE.Group(); l.add(box(1.0, .55, 1.3, mat(0x5a4a3a), 0, .55, 0)); for (const [x, zz] of [[-.45, -.4], [.45, -.4], [-.45, .4], [.45, .4]]) { const r = mesh(new THREE.CylinderGeometry(.16, .16, .08, 8), mat(0x3a3a3a)); r.rotation.z = Math.PI / 2; r.position.set(x, .2, zz); l.add(r); }
-      for (let i = 0; i < 5; i++) { const st = mesh(new THREE.DodecahedronGeometry(.2 + (i % 3) * .06, 0), stein); st.position.set(-.25 + (i % 3) * .25, .9, -.3 + Math.floor(i / 3) * .5); l.add(st); } l.position.z = z; g.add(l); };
-    lore(2.6); lore(6.8); bergArbeiter(g, 1.6, 4.2, .4, 0x6a5a40); bergArbeiter(g, -1.4, 7.4, -.6, 0x5a4a3a, false);
-    for (const [x, z, n] of [[2.6, 6.5, 9], [-2.8, 8.4, 7]]) for (let i = 0; i < n; i++) { const st = mesh(new THREE.DodecahedronGeometry(.32 + (i % 4) * .1, 0), i % 2 ? stein : mat("steinDunkel")); st.position.set(x + Math.cos(i * 2.3) * .7, .2 + Math.floor(i / 4) * .35, z + Math.sin(i * 2.3) * .6); g.add(st); }
-    g.scale.setScalar(1.35); g.userData.festeHoehe = hoehe(gd.u, gd.w) + bergH(gd.u, gd.w) - .05; return g; },
+  mine(gd) {   // 19.10. spät (v3): Stolleneingang im Felsmassiv — graue Felswand mit Bändern, Rahmen bündig eingelassen, Tunnel mit Tiefe, Schotter-Vorplatz, Schienen zur Abraumhalde
+    const g = new THREE.Group(), holz = mat("holz"), hd = mat("holzDunkel"), stein = mat("stein"), FG = [0x8a877f, 0x7b7871, 0x6e6b65, 0x625f5a], fm = FG.map(c => mat(c));
+    const R = rng(Math.round(Math.abs(gd.u * 7 + gd.w * 13)) + 11), OW = 2.6, OH = 3.0, MW = 7.5;   // Öffnung (m), Massiv-Halbbreite
+    // Felsmassiv: drei Stufen nach hinten, Front aus Felsbändern (unterschiedlich tief/grau), seitlich + oben unregelmäßige Blöcke
+    for (const [z0, z1, top] of [[0, -3.2, 6.9], [-3.2, -6.4, 8.0], [-6.4, -9.8, 9.1]]) {
+      for (const sx of [-1, 1]) { const tp = top + (z0 === 0 ? 0 : (R() - .5) * 1.4); g.add(box(MW - OW / 2 - .35, tp, z0 - z1, fm[(z0 === 0 ? 1 : 2)], sx * (OW / 2 + .35 + (MW - OW / 2 - .35) / 2), tp / 2, (z0 + z1) / 2)); }
+      g.add(box(OW + .7, top - OH - .3, z0 - z1, fm[2], 0, OH + .3 + (top - OH - .3) / 2, (z0 + z1) / 2)); }
+    for (let i = 0; i < 9; i++) { const yb = i * .78, t = .25 + R() * .35;   // Bänder an der Front (links/rechts der Öffnung, über dem Rahmen)
+      for (const sx of [-1, 1]) { const w = MW - OW / 2 - .5 - R() * 1.2; g.add(box(w, .7, t, fm[(i + (sx > 0 ? 1 : 0)) % 4], sx * (OW / 2 + .45 + w / 2), yb + .35, t / 2 - R() * .1)); }
+      if (yb > OH + .2) g.add(box(OW + 1.0, .7, t, fm[i % 4], (R() - .5) * .4, yb + .35, t / 2)); }
+    for (let i = 0; i < 34; i++) { const f = mesh(new THREE.DodecahedronGeometry(.7 + R() * 1.1, 0), fm[i % 4]); const sx = i % 2 ? 1 : -1;   // Kanten/Krone: bricht die Stufen
+      if (i < 10) f.position.set(sx * (MW + .2 - R() * .8), .4 + R() * 6, -R() * 9);
+      else { const st = [[0, 6.9], [-3.2, 8.0], [-6.4, 9.1], [-9.8, 9.1]][i % 4]; f.position.set((R() * 2 - 1) * MW, st[1] - .2 + R() * .5, st[0] - .3 + (R() - .5) * 1.2); f.scale.set(1.4, .55, 1); }
+      f.rotation.set(R() * 3, R() * 3, R() * 3); f.scale.set(1, .7 + R() * .3, 1); g.add(f); }
+    for (let i = 0; i < 6; i++) { const f = mesh(new THREE.DodecahedronGeometry(.5 + R() * .6, 0), fm[(i + 1) % 4]); f.position.set((i % 2 ? 1 : -1) * (MW + 1 + R() * 2.5), .3, .4 + R() * 1.2); f.scale.y = .7; g.add(f); }   // Geröll am Wandfuß
+    // Tunnel mit Tiefe (unbeleuchtet, nach hinten dunkler) + innere Stützrahmen
+    const TL = 9.2, NS = 6;
+    for (let k = 0; k < NS; k++) { const z = -(k + .5) * TL / NS, f = 1 - k / NS, c = new THREE.Color(0x4a443d).multiplyScalar(.05 + .5 * f * f), ci = new THREE.Color(0x3a352f).multiplyScalar(.04 + .45 * f * f);
+      const mw = new THREE.MeshBasicMaterial({ color: c }), mi = new THREE.MeshBasicMaterial({ color: ci });
+      for (const sx of [-1, 1]) g.add(box(.3, OH, TL / NS + .02, mw, sx * (OW / 2 + .1), OH / 2, z)); g.add(box(OW + .4, .3, TL / NS + .02, mi, 0, OH + .1, z)); g.add(box(OW, .05, TL / NS + .02, mi, 0, .03, z)); }
+    g.add(box(OW + .4, OH + .4, .1, new THREE.MeshBasicMaterial({ color: 0x050505 }), 0, OH / 2, -TL));
+    for (const z of [-2.4, -5.0]) { const mh = new THREE.MeshBasicMaterial({ color: z < -3 ? 0x2a2018 : 0x4a3626 }); for (const sx of [-1, 1]) g.add(box(.22, OH - .1, .22, mh, sx * (OW / 2 - .15), (OH - .1) / 2, z)); g.add(box(OW, .24, .26, mh, 0, OH - .2, z)); }
+    g.add(box(.16, .22, .16, new THREE.MeshBasicMaterial({ color: 0xd89a4a }), .9, 2.2, -3.4));   // Laterne innen
+    // Rahmen bündig in der Wand: Stützen + Kappholz + Schild, Laterne
+    for (const sx of [-1, 1]) g.add(box(.36, OH + .2, .4, holz, sx * (OW / 2 + .1), (OH + .2) / 2, .05)); g.add(box(OW + 1.1, .42, .46, holz, 0, OH + .3, .05)); g.add(box(.9, .4, .06, hd, 0, OH + .3, .3));
+    g.add(box(.08, .5, .08, mat("stamm"), OW / 2 + .45, 2.7, .35)); g.add(box(.24, .32, .24, new THREE.MeshBasicMaterial({ color: 0xffc46a }), OW / 2 + .45, 2.35, .4));
+    // Vorplatz aus Schotter/Erde, Schienen aus dem Tunnel, Prellbock, Lore an der Abraumhalde
+    g.add(box(13.6, .12, 10.5, mat(0x84745c), 0, .05, 5.25)); g.add(box(2.0, .13, 3.2, mat(0x6e604c), 0, .06, 11.6));
+    for (let i = 0; i < 40; i++) { const st = mesh(new THREE.DodecahedronGeometry(.08 + R() * .14, 0), i % 3 ? stein : mat("steinDunkel"), false); st.position.set((R() * 2 - 1) * 6.2, .12, .5 + R() * 9.5); g.add(st); }
+    for (const x of [-.45, .45]) g.add(box(.07, .07, TL + 8.2, mat(0x6a6a6a), x, .14, (8 - TL) / 2)); for (let i = 0; i < 18; i++) g.add(box(1.3, .08, .22, hd, 0, .1, -TL + .4 + i * (TL + 7.6) / 17));
+    g.add(box(1.4, .5, .3, hd, 0, .3, 8.3));
+    const lore = (x, z, voll) => { const l = new THREE.Group(); l.add(box(1.0, .55, 1.3, mat(0x5a4a3a), 0, .55, 0)); for (const [lx, lz] of [[-.45, -.4], [.45, -.4], [-.45, .4], [.45, .4]]) { const rr = mesh(new THREE.CylinderGeometry(.16, .16, .08, 8), mat(0x3a3a3a)); rr.rotation.z = Math.PI / 2; rr.position.set(lx, .22, lz); l.add(rr); }
+      if (voll) for (let i = 0; i < 5; i++) { const st = mesh(new THREE.DodecahedronGeometry(.2 + (i % 3) * .06, 0), stein); st.position.set(-.25 + (i % 3) * .25, .9, -.3 + Math.floor(i / 3) * .5); l.add(st); } l.position.set(x, .08, z); g.add(l); };
+    lore(0, -1.6, true); lore(0, 6.6, true);
+    const halde = mesh(new THREE.ConeGeometry(2.6, 1.9, 7), mat(0x7d756a)); halde.position.set(3.7, .95, 7.4); halde.scale.z = .8; g.add(halde);
+    for (let i = 0; i < 10; i++) { const st = mesh(new THREE.DodecahedronGeometry(.25 + R() * .25, 0), i % 2 ? stein : mat("steinDunkel")); st.position.set(3.7 + Math.cos(i * 2.1) * (1.5 + R()), .25, 7.4 + Math.sin(i * 2.1) * 1.4); g.add(st); }
+    bergArbeiter(g, 1.9, 3.6, .5, 0x6a5a40); bergArbeiter(g, -2.0, 5.2, -.6, 0x5a4a3a, false);
+    g.userData.festeHoehe = hoehe(gd.u, gd.w) + bergH(gd.u, gd.w) - .02; return g; },
   steinbruch(gd) {   // Steinbruch an der Nordflanke: gestapelte Quader, Hebekran (A-Gestell), Werkbank, Schubkarre
     const g = new THREE.Group(), q = mat(0xb8ae94), q2 = mat(0x9a917a), holz = mat("holz");
     for (let i = 0; i < 14; i++) g.add(box(1.1, .55, .7, i % 3 ? q : q2, -3.5 + (i % 4) * 1.15, .3 + Math.floor(i / 4) * .56, 1.5 + (i % 2) * .1));
@@ -1313,6 +1339,7 @@ const DORF_MITTE_W = 19.5, LAGE = [], belegt = [[0, 0, 4.5], [-3.6, .9, 3.2], [1
 const DOERFER = [DATEN.dorf2, DATEN.dorf3, DATEN.dorf4].map((d, i) => d && d.status === "angelegt" ? Object.assign(d, { nr: i + 2 }) : null).filter(Boolean);   // 18.10. 22:30: weitere Doerfer
 // ---- Berg im Sueden: Hoehe als globale Funktion (Gebaeude/Figuren am Berg brauchen sie schon vorher) — 19.10. abends
 const BERG_DEF = DATEN.berg || { u: 0, w: -505, lu: 300, lw: 115, h: 62 }; BERG_DEF.steinbruch = BERG_DEF.steinbruch || { u: 30, w: BERG_DEF.w + BERG_DEF.lw * .62 };
+const MINEN_RAHMEN = (DATEN.gebaeude || []).filter(g => g.typ === "mine").map(g => ({ u: g.u, w: g.w, c: Math.cos(g.rot || 0), s: Math.sin(g.rot || 0) }));
 const BERG_SPORN = (DATEN.gebaeude || []).filter(g => g.typ === "mine").map(g => { const r = g.rot || 0; return { u: g.u - 7 * Math.sin(r), w: g.w + 7 * Math.cos(r), fu: g.u + 3.2 * Math.sin(r), fw: g.w - 3.2 * Math.cos(r) }; });   // 19.10.: Felsausläufer hinter jedem Stollen
 function bergRoh(u, w) { let sp = 0; for (const S of BERG_SPORN) sp = Math.max(sp, 13 * Math.exp(-((u - S.u) ** 2 + (w - S.w) ** 2) / (2 * 8.5 * 8.5)) + 4 * Math.exp(-((u - S.u) ** 2 + (w - S.w) ** 2) / (2 * 22 * 22)));
   const B = BERG_DEF, tu = B.u - B.lu * .55, tw = B.w;   // Grat vom Stollen-Ausläufer in den Bergrücken (kein Einzelbuckel)
@@ -1323,7 +1350,13 @@ function bergRohKern(u, w) { const B = BERG_DEF, x = (u - B.u) / B.lu, z0 = (w -
   const kamm = Math.exp(-z * z * 5.5) * (.75 + .25 * Math.cos(x * 5.2)) * (1 - x * x) ** .8, nb = (fbm(u * .045 + 3, w * .045 - 7) - .5) * .5 + (fbm(u * .14, w * .14) - .5) * .18;
   return Math.max(0, (kamm + nb * kamm + .12 * (1 - r2)) * B.h * (1 - r2) ** .35); }
 function bergH(u, w) { let y = bergRoh(u, w); const S = BERG_DEF.steinbruch, dq = Math.hypot((u - S.u) / 28, (w - S.w) / 16); if (dq < 1) { const stufe = 3.2; y = Math.min(y, Math.floor(y / stufe) * stufe + (1 - dq) * .4); }
-  for (const S of BERG_SPORN) { const d = Math.hypot(u - S.fu, w - S.fw); if (d < 6) y = Math.min(y, Math.max(0, (d - 3.5) * 1.6)); }   // ebener Vorplatz VOR dem Stollen (der Hang dahinter bleibt)
+  for (const M of MINEN_RAHMEN) { const du = u - M.u, dw = w - M.w, x = du * M.c + dw * M.s, z = du * M.s - dw * M.c, ax = Math.abs(x);   // v3: Felsmassiv-Nische (Gelände bleibt unter dem Massiv, davor ebener Vorplatz)
+    if (ax > 20 || z < -24 || z > 24) continue;
+    if (z > 0) y = Math.min(y, Math.hypot(Math.max(0, ax - 6.8), Math.max(0, z - 13.5)) * 1.3);
+    else if (z > -9.8) y = Math.min(y, 5.6 + .35 * -z + Math.max(0, ax - 7.5) * 1.2);
+    else y = Math.min(y, 9.0 + (-9.8 - z) * 1.1 + Math.max(0, ax - 7.5) * 1.2);
+    if (z <= 0 && z > -3 && ax < 9.5) y = Math.min(y, 5.6 * -z / 3 + Math.max(0, ax - 7.5) * 1.2);   // nichts ragt vor die Wand (Gitter 2 m)
+    if (ax < 4.4 && z > -10 && z <= .5) y = 0; }
   return y; }
 const W_GEB = DATEN.gebaeude || [], W_BP = DATEN.bauplaetze || [], W_DEKO = DATEN.deko || [], W_BERUFE = DATEN.berufe || {};   // aus data/welt-zustand.json (17.10.)
 for (const g of W_GEB) belegt.push([g.u, g.w, 5.2]); for (const g of W_BP) belegt.push([g.u, g.w, 3.0]); for (const g of W_DEKO) belegt.push([g.u, g.w, 1.6]);
@@ -1871,10 +1904,10 @@ window.__baeume = WALD.fertig();
 // Steinbruch-taugliche Flanke zur Dorfseite (Nordflanke, Terrassen). Eigenes statisches Mesh ueber dem Gelaende (Gelaende/Fluss/Wald bleiben unveraendert).
 const BERG = (() => { const B = BERG_DEF, cu = B.u, cw = B.w, hb = bergH, STB = B.steinbruch;
   const NU = 340, NW = 156, g = new THREE.PlaneGeometry(B.lu * 2 + 80, B.lw * 2 + 40, NU, NW); g.rotateX(-Math.PI / 2); g.translate(cu, 0, -cw);   // Rand fuer die Stollen-Auslaeufer an der Westspitze
-  const p = g.attributes.position, col = [], c = new THREE.Color(), cG = new THREE.Color(PAL.grasDunkel), cF = new THREE.Color(0x5f5b4f), cF2 = new THREE.Color(0x4b473d), cS = new THREE.Color(0xeeece6), cQ = new THREE.Color(0x8a8270);
+  const p = g.attributes.position, col = [], c = new THREE.Color(), cG = new THREE.Color(PAL.grasDunkel), cF = new THREE.Color(0x6e6b64), cF2 = new THREE.Color(0x58554f), cS = new THREE.Color(0xeeece6), cQ = new THREE.Color(0x8a8270);
   for (let i = 0; i < p.count; i++) { const u = p.getX(i), w = -p.getZ(i), y = hb(u, w), y2 = hb(u + 1.5, w), y3 = hb(u, w + 1.5), steil = Math.hypot(y2 - y, y3 - y) / 1.5;
     p.setY(i, hoehe(u, w) + y - (y < .05 ? .6 : 0));
-    const hr = y / B.h; c.copy(cG).lerp(cF, sst(.06, .3, hr) * .85 + sst(.5, 1.1, steil) * .5).lerp(cF2, sst(.4, .7, hr) * .4 * (fbm(u * .2, w * .2)));
+    const hr = y / B.h; c.copy(cG).lerp(cF, sst(.06, .3, hr) * .85 + sst(.5, 1.1, steil) * .85).lerp(cF2, sst(.4, .7, hr) * .4 * (fbm(u * .2, w * .2)));
     if (hr > 1.12) c.lerp(cS, sst(1.12, 1.24, hr + (fbm(u * .3, w * .3) - .5) * .12) * (1 - sst(.9, 1.4, steil) * .6));
     if (Math.hypot((u - STB.u) / 28, (w - STB.w) / 16) < 1 && y > .3) c.copy(cQ).lerp(cF2, fbm(u * .5, w * .5) * .4);
     col.push(c.r, c.g, c.b); }
@@ -1883,7 +1916,7 @@ const BERG = (() => { const B = BERG_DEF, cu = B.u, cw = B.w, hb = bergH, STB = 
   // Nadelwald an den Haengen (instanziert): unten dicht, oben licht, nicht im Steinbruch, nicht auf Fels/Schnee
   const RB = rng(4242), M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S3 = new THREE.Vector3(), lst = [];
   for (let i = 0; i < 30000 && lst.length < 2600; i++) { const u = cu + (RB() * 2 - 1) * B.lu, w = cw + (RB() * 2 - 1) * B.lw, y = hb(u, w), hr = y / B.h;
-    if (y < 1.0 || hr > .6 || Math.hypot((u - STB.u) / 32, (w - STB.w) / 20) < 1 || W_GEB.some(g => (g.typ === "mine" || g.typ === "steinbruch") && Math.hypot(u - g.u, w - g.w) < 14)) continue;
+    if (y < 1.0 || hr > .6 || Math.hypot((u - STB.u) / 32, (w - STB.w) / 20) < 1 || W_GEB.some(g => (g.typ === "mine" || g.typ === "steinbruch") && Math.hypot(u - g.u, w - g.w) < (g.typ === "mine" ? 17 : 14))) continue;
     const steil = Math.hypot(hb(u + 1.5, w) - y, hb(u, w + 1.5) - y) / 1.5; if (steil > 1.5 || RB() > (1 - hr * 1.3)) continue;
     lst.push([u, hoehe(u, w) + y, w, .8 + RB() * .6, RB() * 6]); }
   const teile = [[new THREE.CylinderGeometry(.18, .26, 1.4, 5).translate(0, .7, 0), mat("stamm")], [new THREE.ConeGeometry(1.5, 2.2, 6).translate(0, 2.1, 0), mat("tanne")], [new THREE.ConeGeometry(1.1, 1.9, 6).translate(0, 3.1, 0), mat("tanne")], [new THREE.ConeGeometry(.7, 1.6, 6).translate(0, 4.0, 0), mat("tanne")]];
@@ -2182,7 +2215,7 @@ const K = { b: startB, u: (RU[0] + RU[1]) / 2, w: (RW[0] + RW[1]) / 2 + .02 * st
 const START = { b: K.b, u: K.u, w: K.w };
 const ALLE_U = [0, ...LAGE.map(l => l.u), ...DOERFER.flatMap(d => [d.u - 250, d.u + 250])], B_WEIT = (Math.max(...ALLE_U) - Math.min(...ALLE_U)) * 1.12 + 60;   // 18.10. Fix: weit genug fuer beide Doerfer
 const B_MIN = 12, B_MAX = Math.min(Math.max(60, startB * 1.4, B_WEIT), TER * .5);   // nie weiter heraus, als Gelaende da ist
-function ansicht() { klemmen(); const z = K.b; kamera(c, z, K.u, K.w + .10 * z * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180) * .5, window.__az ?? -4, 33, window.__zy || 0); }   // TURM-1910 (nur Pruefung: Orbit)
+function ansicht() { klemmen(); const z = K.b; kamera(c, z, K.u, K.w + .10 * z * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180) * .5, window.__az ?? -4, window.__el ?? 33, window.__zy || 0); }   // TURM-1910 (nur Pruefung: Orbit)
 const zeiger = new Map(); let zieh = null, pinch = null;
 const cv = renderer.domElement; cv.style.touchAction = "none";
 cv.addEventListener("pointerdown", e => { zeiger.set(e.pointerId, [e.clientX, e.clientY]); K.ziel = null; if (zeiger.size === 1) zieh = [e.clientX, e.clientY, K.u, K.w]; else { zieh = null; const [a, b] = [...zeiger.values()]; pinch = [Math.hypot(a[0] - b[0], a[1] - b[1]), K.b]; } });
