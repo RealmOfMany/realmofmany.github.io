@@ -1791,8 +1791,37 @@ const WALD = (() => {
   window.__waldbaeume = n; }
 window.__baeume = WALD.fertig();
 // ---- Weite Sicht (19.10. 00:30): Nebel jenseits des Waldes (Fog of War, waechst mit der Welt) + breiterer Bach/Hauptstrassen beim weiten Herauszoomen
+// ---- Berg im Sueden (19.10. abends, Anthony): Bergruecken suedlich von Dorf 1 — Fels, Schnee oben, Nadelwald an den Haengen,
+// Steinbruch-taugliche Flanke zur Dorfseite (Nordflanke, Terrassen). Eigenes statisches Mesh ueber dem Gelaende (Gelaende/Fluss/Wald bleiben unveraendert).
+const BERG = (() => { const B = DATEN.berg || { u: 0, w: -505, lu: 300, lw: 115, h: 78 }; const cu = B.u, cw = B.w;
+  const roh = (u, w) => { const x = (u - cu) / B.lu, z0 = (w - cw) / B.lw, r2 = x * x + z0 * z0; if (r2 >= 1) return 0; const z = z0 > 0 ? z0 * .55 : z0 * 1.6;   // Nordflanke (Dorfseite) flach + lang, Sued steil
+    const kamm = Math.exp(-z * z * 5.5) * (.75 + .25 * Math.cos(x * 5.2)) * (1 - x * x) ** .8, nb = (fbm(u * .045 + 3, w * .045 - 7) - .5) * .5 + (fbm(u * .14, w * .14) - .5) * .18;
+    return Math.max(0, (kamm + nb * kamm + .12 * (1 - r2)) * B.h * (1 - r2) ** .35); };
+  const STB = B.steinbruch || { u: 30, w: cw + B.lw * .62 };   // Steinbruch: abgestufte Terrassen an der Nordflanke
+  const hb = (u, w) => { let y = roh(u, w); const dq = Math.hypot((u - STB.u) / 28, (w - STB.w) / 16); if (dq < 1) { const stufe = 3.2; y = Math.min(y, Math.floor(y / stufe) * stufe + (1 - dq) * .4); } return y; };
+  const NU = 150, NW = 70, g = new THREE.PlaneGeometry(B.lu * 2, B.lw * 2, NU, NW); g.rotateX(-Math.PI / 2); g.translate(cu, 0, -cw);
+  const p = g.attributes.position, col = [], c = new THREE.Color(), cG = new THREE.Color(PAL.grasDunkel), cF = new THREE.Color(0x5f5b4f), cF2 = new THREE.Color(0x4b473d), cS = new THREE.Color(0xeeece6), cQ = new THREE.Color(0x8a8270);
+  for (let i = 0; i < p.count; i++) { const u = p.getX(i), w = -p.getZ(i), y = hb(u, w), y2 = hb(u + 1.5, w), y3 = hb(u, w + 1.5), steil = Math.hypot(y2 - y, y3 - y) / 1.5;
+    p.setY(i, hoehe(u, w) + y - (y < .05 ? .6 : 0));
+    const hr = y / B.h; c.copy(cG).lerp(cF, sst(.06, .3, hr) * .85 + sst(.5, 1.1, steil) * .5).lerp(cF2, sst(.4, .7, hr) * .4 * (fbm(u * .2, w * .2)));
+    if (hr > 1.12) c.lerp(cS, sst(1.12, 1.24, hr + (fbm(u * .3, w * .3) - .5) * .12) * (1 - sst(.9, 1.4, steil) * .6));
+    if (Math.hypot((u - STB.u) / 28, (w - STB.w) / 16) < 1 && y > .3) c.copy(cQ).lerp(cF2, fbm(u * .5, w * .5) * .4);
+    col.push(c.r, c.g, c.b); }
+  g.setAttribute("color", new THREE.Float32BufferAttribute(col, 3)); g.computeVertexNormals();
+  const m = new THREE.Mesh(g, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true })); m.receiveShadow = true; m.castShadow = false; scene.add(m);
+  // Nadelwald an den Haengen (instanziert): unten dicht, oben licht, nicht im Steinbruch, nicht auf Fels/Schnee
+  const RB = rng(4242), M4 = new THREE.Matrix4(), Q = new THREE.Quaternion(), V = new THREE.Vector3(), S3 = new THREE.Vector3(), lst = [];
+  for (let i = 0; i < 30000 && lst.length < 2600; i++) { const u = cu + (RB() * 2 - 1) * B.lu, w = cw + (RB() * 2 - 1) * B.lw, y = hb(u, w), hr = y / B.h;
+    if (y < 1.0 || hr > .6 || Math.hypot((u - STB.u) / 32, (w - STB.w) / 20) < 1) continue;
+    const steil = Math.hypot(hb(u + 1.5, w) - y, hb(u, w + 1.5) - y) / 1.5; if (steil > 1.5 || RB() > (1 - hr * 1.3)) continue;
+    lst.push([u, hoehe(u, w) + y, w, .8 + RB() * .6, RB() * 6]); }
+  const teile = [[new THREE.CylinderGeometry(.18, .26, 1.4, 5).translate(0, .7, 0), mat("stamm")], [new THREE.ConeGeometry(1.5, 2.2, 6).translate(0, 2.1, 0), mat("tanne")], [new THREE.ConeGeometry(1.1, 1.9, 6).translate(0, 3.1, 0), mat("tanne")], [new THREE.ConeGeometry(.7, 1.6, 6).translate(0, 4.0, 0), mat("tanne")]];
+  for (const [geo, mt] of teile) { const im = new THREE.InstancedMesh(geo, mt, lst.length); lst.forEach(([u, y, w, sk, ro], k) => im.setMatrixAt(k, M4.compose(V.set(u, y, -w), Q.setFromEuler(new THREE.Euler(0, ro, 0)), S3.set(sk, sk * (1 + (k % 5) * .06), sk))));
+    im.castShadow = false; im.receiveShadow = true; im.computeBoundingSphere(); scene.add(im); }
+  window.__berg = () => ({ baeume: lst.length, spitze: Math.round(Math.max(...Array.from({ length: 200 }, (_, k) => hb(cu + (k / 100 - 1) * B.lu * .9, cw)))), steinbruch: STB });
+  return { cu, cw, B, hb, STB, baeume: lst.length }; })();
 const FERN = { teile: [], an: null };
-{ const pk = [[0, 0, 20], ...VOFFEN.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...DOERFER.map(d => [d.u, d.w, 260]), ...(DATEN.flaechen || []).filter(f => f.art === "landschaft").map(f => [f.u, f.w, 60])];
+{ const pk = [[0, 0, 20], [BERG.cu, BERG.cw, BERG.B.lu * .95], ...VOFFEN.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...DOERFER.map(d => [d.u, d.w, 260]), ...(DATEN.flaechen || []).filter(f => f.art === "landschaft").map(f => [f.u, f.w, 60])];
   const RAND = 125, U0 = Math.min(...pk.map(p => p[0] - p[2])) - RAND, U1 = Math.max(...pk.map(p => p[0] + p[2])) + RAND, W0 = Math.min(...pk.map(p => p[1] - p[2])) - RAND, W1 = Math.max(...pk.map(p => p[1] + p[2])) + RAND;
   const cu = (U0 + U1) / 2, cw = (W0 + W1) / 2, au = (U1 - U0) / 2, aw = (W1 - W0) / 2;
   const g = new THREE.PlaneGeometry(TER * 2.2, TER * 2.2, 1, 1); g.rotateX(-Math.PI / 2);
@@ -1848,7 +1877,7 @@ window.__inventar = () => {  window.__pferde = W_GEB.filter(g => g.typ === "stal
     objekte_auf_weg: [...W_DEKO.filter(d => d.u != null && !/reh|hase|voegel|fuchs|huhn/.test(d.typ)).map(d => [d.u, d.w, d.typ]), ...W_GEB.filter(g => /brunnen|holzturm/.test(g.typ)).map(g => [g.u, g.w, g.id]),
       ...(FIG.fass ? [[FIG.fass.u, FIG.fass.w, "fass"]] : []), ...FIG.flaggen.map(f => [f.g.position.x, -f.g.position.z, "flagge"]), ...(FIG.schaukeln || []).map(f => [f.pendel.parent.position.x, -f.pendel.parent.position.z, "schaukel"])]
       .filter(([u, w]) => aufWeg(u, w, 0)).map(x => x[2]),
-    objekte_im_wasser: [...W_GEB.filter(g => GEB_R[g.typ]).map(g => [g.u, g.w, GEB_R[g.typ], g.id]), ...W_DEKO.filter(d => d.u != null).map(d => [d.u, d.w, 1.5, d.typ]), ...(DATEN.figuren || []).filter(f => f.u != null).map(f => [f.u, f.w, 1, f.typ])].filter(([u, w, r]) => Math.abs(w - flussW(u)) - r < 3.6).map(x => x[3]), gebaeude: W_GEB.length, wege: W_WEGE.length, tiere: Object.values(TIERE.n).reduce((a, b) => a + b, 0), pferde: window.__pferde, weidetiere: (ZUS.herde ? ZUS.herde.n : 0) + (ZUS.herden || []).reduce((a, h) => a + h.n, 0), tierarten: TIERE.n, tore: W_GEB.reduce((n, g) => n + (g.tore || 0), 0), palisade_luecken: W_GEB.filter(g => g.typ === "palisade_baustelle").map(g => [g.id, g.tore, g.luecken, g.huettenluecken].join(":")).join(" "), palisade_prozent: W_GEB.filter(g => g.typ === "palisade_baustelle").map(g => g.prozent), figuren: (DATEN.figuren || []).length,
+    objekte_im_wasser: [...W_GEB.filter(g => GEB_R[g.typ]).map(g => [g.u, g.w, GEB_R[g.typ], g.id]), ...W_DEKO.filter(d => d.u != null).map(d => [d.u, d.w, 1.5, d.typ]), ...(DATEN.figuren || []).filter(f => f.u != null).map(f => [f.u, f.w, 1, f.typ])].filter(([u, w, r]) => Math.abs(w - flussW(u)) - r < 3.6).map(x => x[3]), gebaeude: W_GEB.length, wege: W_WEGE.length, tiere: Object.values(TIERE.n).reduce((a, b) => a + b, 0), bergbaeume: BERG.baeume, pferde: window.__pferde, weidetiere: (ZUS.herde ? ZUS.herde.n : 0) + (ZUS.herden || []).reduce((a, h) => a + h.n, 0), tierarten: TIERE.n, tore: W_GEB.reduce((n, g) => n + (g.tore || 0), 0), palisade_luecken: W_GEB.filter(g => g.typ === "palisade_baustelle").map(g => [g.id, g.tore, g.luecken, g.huettenluecken].join(":")).join(" "), palisade_prozent: W_GEB.filter(g => g.typ === "palisade_baustelle").map(g => g.prozent), figuren: (DATEN.figuren || []).length,
     viertel: W_VIERTEL.length, deko: W_DEKO.length, schilder: SCH.length, bmax: Math.round(B_MAX) }; };
 gras(Math.round(2600 * NS * (SAISON.schnee ? .35 : 1)), [-30 * NS, 30 * NS], [-28 * NS, 40 * NS]); wolken(6);
 if (SAISON.laub) { const n = 64, im = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.42, 0), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 1 }), n);   // Laubhaufen (Herbst), 1 Draw-Call
