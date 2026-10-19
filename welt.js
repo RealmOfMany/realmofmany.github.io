@@ -739,6 +739,12 @@ window.__gruppen = { WOHNEN, GETEILT: Object.keys(GETEILT), ARBEIT };
 
 // ================================================================ Dorf-Bauten aus Wuenschen + Berufe (17.10.2026), gemeinsam fuer Reel und Weltkarte
 // BAUTEN[typ]() -> Gruppe; g.userData.stufen = {fundament, waende, dach, rest} (fuer Zeitraffer: bauStufe(g, p 0..1)); g.userData.kamin = lokaler Rauchpunkt
+const bergArbeiter = (g, x, z, ry, tuch, hacke = true) => { const m = new THREE.Group(), t = mat(tuch);   // 19.10.: feste Arbeiterfigur (Bergmann/Steinmetz), immer sichtbar
+  for (const dx of [-.11, .11]) m.add(box(.16, .75, .18, mat(0x4a3a2a), dx, .38, 0)); m.add(box(.46, .7, .3, t, 0, 1.1, 0)); const kopf = mesh(new THREE.IcosahedronGeometry(.19, 0), mat(PAL.haut)); kopf.position.y = 1.62; m.add(kopf);
+  const helm = mesh(new THREE.SphereGeometry(.21, 8, 5, 0, 6.283, 0, 1.5), mat(0x8a6a3a)); helm.position.y = 1.7; m.add(helm);
+  const arm = box(.13, .62, .14, t, .31, 1.3, .15); arm.rotation.x = -1.6; m.add(arm); m.add(box(.13, .62, .14, t, -.31, 1.1, 0));
+  if (hacke) { const st = box(.05, 1.1, .05, mat("stamm"), .31, 1.65, .7); st.rotation.x = -.5; m.add(st); const kp = box(.5, .08, .08, mat(0x777777), .31, 2.1, .95); m.add(kp); }
+  m.position.set(x, 0, z); m.rotation.y = ry; m.scale.setScalar(1.1); g.add(m); };
 const BAUTEN = {
   holzfaellerhuette() {
     const g = new THREE.Group(), l = 4.6, b = 3.6, h = 2.1, st = { fundament: [], waende: [], dach: [], rest: [] };
@@ -922,9 +928,9 @@ const BAUTEN = {
     for (const x of [-.45, .45]) g.add(box(.07, .07, 11, mat(0x6a6a6a), x, .12, 5.2)); for (let i = 0; i < 12; i++) g.add(box(1.3, .08, .22, hd, 0, .06, i * .95));
     const lore = z => { const l = new THREE.Group(); l.add(box(1.0, .55, 1.3, mat(0x5a4a3a), 0, .55, 0)); for (const [x, zz] of [[-.45, -.4], [.45, -.4], [-.45, .4], [.45, .4]]) { const r = mesh(new THREE.CylinderGeometry(.16, .16, .08, 8), mat(0x3a3a3a)); r.rotation.z = Math.PI / 2; r.position.set(x, .2, zz); l.add(r); }
       for (let i = 0; i < 5; i++) { const st = mesh(new THREE.DodecahedronGeometry(.2 + (i % 3) * .06, 0), stein); st.position.set(-.25 + (i % 3) * .25, .9, -.3 + Math.floor(i / 3) * .5); l.add(st); } l.position.z = z; g.add(l); };
-    lore(2.6); lore(6.8);
+    lore(2.6); lore(6.8); bergArbeiter(g, 1.6, 4.2, .4, 0x6a5a40); bergArbeiter(g, -1.4, 7.4, -.6, 0x5a4a3a, false);
     for (const [x, z, n] of [[2.6, 6.5, 9], [-2.8, 8.4, 7]]) for (let i = 0; i < n; i++) { const st = mesh(new THREE.DodecahedronGeometry(.32 + (i % 4) * .1, 0), i % 2 ? stein : mat("steinDunkel")); st.position.set(x + Math.cos(i * 2.3) * .7, .2 + Math.floor(i / 4) * .35, z + Math.sin(i * 2.3) * .6); g.add(st); }
-    g.userData.festeHoehe = hoehe(gd.u, gd.w) + bergH(gd.u, gd.w); return g; },
+    g.scale.setScalar(1.35); g.userData.festeHoehe = hoehe(gd.u, gd.w) + bergH(gd.u, gd.w); return g; },
   steinbruch(gd) {   // Steinbruch an der Nordflanke: gestapelte Quader, Hebekran (A-Gestell), Werkbank, Schubkarre
     const g = new THREE.Group(), q = mat(0xb8ae94), q2 = mat(0x9a917a), holz = mat("holz");
     for (let i = 0; i < 14; i++) g.add(box(1.1, .55, .7, i % 3 ? q : q2, -3.5 + (i % 4) * 1.15, .3 + Math.floor(i / 4) * .56, 1.5 + (i % 2) * .1));
@@ -932,6 +938,7 @@ const BAUTEN = {
     for (const s of [-1, 1]) { const b = box(.2, 4.6, .2, holz, s * 1.1, 2.2, -1.2); b.rotation.z = s * .26; g.add(b); } g.add(box(.18, .18, 3.2, holz, 0, 4.4, -.4));
     g.add(box(.04, 2.6, .04, mat(0xe8dcc0), 0, 3.1, 1.0)); g.add(box(.9, .45, .6, q, 0, 1.6, 1.0));
     g.add(box(2.0, .1, .8, holz, -1.0, .85, 4.2)); for (const x of [-1.8, -.2]) g.add(box(.1, .85, .1, holz, x, .42, 4.2));
+    bergArbeiter(g, -1.0, 3.2, .3, 0x7a6a50); bergArbeiter(g, 1.8, 3.6, -.5, 0x5a6a50); bergArbeiter(g, -2.6, 2.6, 1.2, 0x6a5a5a, false);
     const sk = new THREE.Group(); sk.add(box(.8, .3, .6, mat(0x6a5a4a), 0, .5, 0)); sk.add(box(.06, .06, 1.2, holz, .3, .45, .7)); sk.add(box(.06, .06, 1.2, holz, -.3, .45, .7)); sk.position.set(3.4, 0, 5.0); g.add(sk);
     g.userData.festeHoehe = hoehe(gd.u, gd.w) + bergH(gd.u, gd.w); return g; },
   gasthaus(gd) {   // 19.10. abends: Gasthaus fuer Besucher (Upgrade Tag 4 Part 3, most ♥ „we need an inn“) — zweistoeckiges Fachwerk, Wirtshausschild, Gaststall mit Pferden, Anbindebalken, Laternen, Baenke
