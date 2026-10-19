@@ -1196,7 +1196,9 @@ const TX = { wunsch_titel: "Today's wish", wunsch_von: "wish by", naechster: "",
   ...(DATEN.texte || {}) };
 const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const fuell = (t, o) => t.replace(/\{(\w+)\}/g, (_, k) => o[k] ?? "");
-document.getElementById("kopfzahl").textContent = `Day ${DATEN.tag} · ${DATEN.einwohner} ${DATEN.einwohner === 1 ? "soul" : "souls"}`;
+document.getElementById("kopfzahl").textContent = `Day ${DATEN.tag} · ${DATEN.einwohner.toLocaleString("en-US")} ${DATEN.einwohner === 1 ? "soul" : "souls"}`;
+{ const k = document.getElementById("kopf"), pf = document.getElementById("pfeil");   // KARTE-KOMPAKT: Tippen klappt auf/zu
+  if (k && pf) k.addEventListener("click", e => { if (e.target.closest("button")) return; const zu = k.classList.toggle("zu"); pf.textContent = zu ? "▾" : "▴"; }); }
 const RENNEN = DATEN.wunsch_rennen && (DATEN.wunsch_rennen.top || []).length ? DATEN.wunsch_rennen : null;   // nur umgedeutete Texte (wachstum.py)
 { const W = DATEN.wunsch, el = document.getElementById("wunsch");
   el.innerHTML = (W ? `<b>${esc(W.titel || TX.wunsch_titel)}:</b> ${esc(W.text)}` + (W.von ? ` <span>— ${esc(TX.wunsch_von)} @${esc(W.von)}</span>` : "") : "")

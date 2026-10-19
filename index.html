@@ -42,12 +42,21 @@
     background:rgba(253,246,228,.95);color:#2a2118;font:600 15px Georgia,serif;box-shadow:0 3px 10px rgba(50,30,10,.25);z-index:5}
   #namen[aria-pressed="false"]{background:#4a3020;color:#fbefd6;border-color:#c9a04a}
   #laden{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px;color:#5c4526;background:#e7e0cc;transition:opacity .6s}
+  /* KARTE-KOMPAKT (19.10.): eingeklappt eine Zeile, Tippen klappt auf */
+  #kopf{cursor:pointer;-webkit-tap-highlight-color:transparent}
+  #kopf.zu{padding:8px 14px}
+  #kopf.zu h1,#kopf.zu #kopfzahl{display:inline;font-size:16px;margin:0}
+  #kopf.zu #kopfzahl{color:#5c4526}
+  #kopf.zu #kopfzahl::before{content:" · "}
+  #kopf.zu #wunsch,#kopf.zu #seit,#kopf.zu #uhr{display:none!important}
+  #kopf #pfeil{float:right;font-size:14px;color:#7a5a30;margin-left:8px;line-height:24px}
+  #kopf:not(.zu) #pfeil{position:absolute;right:14px;bottom:8px}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 <div id="schilder"></div>
-<div id="kopf" class="karte"><h1>Realm of Many</h1><div id="uhr"></div><div id="kopfzahl">…</div><div id="wunsch"></div><div id="seit"></div></div>
+<div id="kopf" class="karte zu"><span id="pfeil">▾</span><h1>Realm of Many</h1><div id="uhr"></div><div id="kopfzahl">…</div><div id="wunsch"></div><div id="seit"></div></div>
 <div id="unten" class="karte">
   <form id="form" autocomplete="off"><input id="suche" placeholder="Find your house — @yourname" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search"><button>Find</button></form>
   <div id="meldung"></div>
