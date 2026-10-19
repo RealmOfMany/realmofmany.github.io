@@ -1925,20 +1925,32 @@ const BERG = (() => { const B = BERG_DEF, cu = B.u, cw = B.w, hb = bergH, STB = 
   window.__berg = () => ({ baeume: lst.length, spitze: Math.round(Math.max(...Array.from({ length: 200 }, (_, k) => hb(cu + (k / 100 - 1) * B.lu * .9, cw)))), steinbruch: STB });
   return { cu, cw, B, hb, STB, baeume: lst.length }; })();
 const FERN = { teile: [], an: null };
-{ const pk = [[0, 0, 20], [BERG.cu, BERG.cw, BERG.B.lu * .95], ...VOFFEN.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...DOERFER.map(d => [d.u, d.w, 260]), ...(DATEN.flaechen || []).filter(f => f.art === "landschaft").map(f => [f.u, f.w, 60])];
-  const RAND = 125, U0 = Math.min(...pk.map(p => p[0] - p[2])) - RAND, U1 = Math.max(...pk.map(p => p[0] + p[2])) + RAND, W0 = Math.min(...pk.map(p => p[1] - p[2])) - RAND, W1 = Math.max(...pk.map(p => p[1] + p[2])) + RAND;
-  const cu = (U0 + U1) / 2, cw = (W0 + W1) / 2, au = (U1 - U0) / 2, aw = (W1 - W0) / 2;
-  const g = new THREE.PlaneGeometry(TER * 2.2, TER * 2.2, 1, 1); g.rotateX(-Math.PI / 2);
-  const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, fog: false, uniforms: { farbe: { value: new THREE.Color(NEBEL_TAG) }, mitte: { value: new THREE.Vector2(cu, cw) }, achse: { value: new THREE.Vector2(au, aw) } },
+{ // Nebelrand (19.10. spät: Abstandsfeld)
+  // 19.10. spät: Nebel folgt der echten Wald-/Berggrenze (Abstandsfeld als Textur) statt eines Rechteck-Rings — schließt überall, auch gedreht
+  const ORTE = [...W_VIERTEL.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_GEB.filter(g => g.u !== undefined).map(g => [g.u, g.w, 8]), [0, 0, 10], [0, DORF_MITTE_W, 14], ...DOERFER.map(d => [d.u, d.w, 12])];
+  const KERN = [...(DATEN.flaechen || []).filter(f => f.art === "landschaft").map(f => [f.u, f.w, 60]), ...DOERFER.map(d => [d.u, d.w, 260])];
+  const BU0 = Math.min(...ORTE.map(o => o[0])) - 150, BU1 = Math.max(...ORTE.map(o => o[0])) + 150, BW0 = Math.min(...ORTE.map(o => o[1])) - 110, BW1 = Math.max(...ORTE.map(o => o[1])) + 120;   // = Waldgebiet
+  const B = BERG.B, ZC = 12, GU0 = Math.min(BU0, B.u - B.lu) - 160, GW0 = Math.min(BW0, B.w - B.lw) - 160, GU1 = Math.max(BU1, B.u + B.lu) + 160, GW1 = Math.max(BW1, B.w + B.lw) + 160;
+  const NX = Math.ceil((GU1 - GU0) / ZC) + 1, NZ = Math.ceil((GW1 - GW0) / ZC) + 1, A = new Uint8Array(NX * NZ * 4);
+  const nebelA = (u, w) => { let d = 1e9; for (const [a, b, r] of ORTE) { const x = Math.hypot(u - a, (w - b) * .9) - r; if (x < d) d = x; } d -= 150;
+    for (const [a, b, r] of KERN) d = Math.min(d, Math.hypot(u - a, w - b) - r);
+    d = Math.max(d, BU0 - u, u - BU1, BW0 - w, w - BW1);   // Wald endet am Rechteck
+    d = Math.min(d, (Math.hypot((u - B.u) / B.lu, (w - B.w) / B.lw) - 1) * B.lw);   // Berg bleibt sichtbar
+    return sst(12, 75, d); };
+  for (let j = 0; j < NZ; j++) for (let i = 0; i < NX; i++) { const k = (j * NX + i) * 4, a = Math.round(255 * nebelA(GU0 + i * ZC, GW0 + j * ZC)); A[k] = A[k + 1] = A[k + 2] = A[k + 3] = a; }
+  const tx = new THREE.DataTexture(A, NX, NZ, THREE.RGBAFormat); tx.magFilter = tx.minFilter = THREE.LinearFilter; tx.wrapS = tx.wrapT = THREE.ClampToEdgeWrapping; tx.needsUpdate = true;
+  const cu = (GU0 + GU1) / 2, cw = (GW0 + GW1) / 2, au = (GU1 - GU0) / 2, aw = (GW1 - GW0) / 2, GR = Math.max(TER * 2.2, (au + aw) * 3);
+  const g = new THREE.PlaneGeometry(GR, GR, 1, 1); g.rotateX(-Math.PI / 2);
+  const m = new THREE.ShaderMaterial({ transparent: true, depthWrite: false, fog: false, uniforms: { farbe: { value: new THREE.Color(NEBEL_TAG) }, feld: { value: tx }, o: { value: new THREE.Vector2(GU0, GW0) }, gr: { value: new THREE.Vector2((NX - 1) * ZC, (NZ - 1) * ZC) }, nx: { value: new THREE.Vector2(NX, NZ) } },
     vertexShader: "varying vec2 vp; void main(){ vec4 w = modelMatrix * vec4(position, 1.0); vp = vec2(w.x, -w.z); gl_Position = projectionMatrix * viewMatrix * w; }",
-    fragmentShader: "uniform vec3 farbe; uniform vec2 mitte; uniform vec2 achse; varying vec2 vp; void main(){ vec2 q = abs((vp - mitte) / achse); float d = pow(pow(q.x, 4.0) + pow(q.y, 4.0), 0.25); float a = smoothstep(0.93, 1.12, d); gl_FragColor = vec4(farbe, a * 0.97); }" });
-  const nebel = new THREE.Mesh(g, m); nebel.position.set(cu, 9, -cw); nebel.renderOrder = 8; nebel.frustumCulled = false; scene.add(nebel); window.__nebelrand = { cu, cw, au, aw };
+    fragmentShader: "uniform vec3 farbe; uniform sampler2D feld; uniform vec2 o; uniform vec2 gr; uniform vec2 nx; varying vec2 vp; void main(){ vec2 q = (vp - o) / gr; float a = (q.x < 0.0 || q.y < 0.0 || q.x > 1.0 || q.y > 1.0) ? 1.0 : texture2D(feld, (q * (nx - 1.0) + 0.5) / nx).a; gl_FragColor = vec4(farbe, a * 0.97); }" });
+  const nebel = new THREE.Mesh(g, m); nebel.position.set(cu, 9, -cw); nebel.renderOrder = 8; nebel.frustumCulled = false; scene.add(nebel); window.__nebelrand = { cu, cw, au, aw, nebelA };
   // breiter Bach + Hauptstrassen nur in der weiten Sicht (sonst unsichtbar)
   const band = (pts, halb, farbe, y0) => { const pos = [], idx = []; pts.forEach(([u, w, y], i) => { const p = pts[Math.max(0, i - 1)], q = pts[Math.min(pts.length - 1, i + 1)]; let tu = q[0] - p[0], tw = q[1] - p[1]; const l = Math.hypot(tu, tw) || 1; tu /= l; tw /= l;
       pos.push(u - tw * halb, y + y0, -(w + tu * halb), u + tw * halb, y + y0, -(w - tu * halb)); if (i) { const k = (i - 1) * 2; idx.push(k, k + 1, k + 2, k + 1, k + 3, k + 2); } });
     const geo = new THREE.BufferGeometry(); geo.setAttribute("position", new THREE.Float32BufferAttribute(pos, 3)); geo.setIndex(idx); geo.computeVertexNormals();
     const mm = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color: farbe, side: THREE.DoubleSide, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 })); mm.visible = false; mm.renderOrder = 2; scene.add(mm); FERN.teile.push(mm); };
-  const fl = []; for (let i = 0; i < FLUSS.y.length; i += 2) { const u = FLUSS.u0 + i * FLUSS.schritt; fl.push([u, flussW(u), FLUSS.y[i]]); } band(fl, 6.5, PAL.wasser, .06);
+  const fl = []; for (let i = 0; i < FLUSS.y.length; i += 2) { const u = FLUSS.u0 + i * FLUSS.schritt; if (nebelA(u, flussW(u)) < .9) fl.push([u, flussW(u), FLUSS.y[i]]); } band(fl, 6.5, PAL.wasser, .06);
   for (const wg of W_WEGE.filter(x => x.art === "strasse")) band(wg.linie.filter((p, i) => i % 2 === 0 || i === wg.linie.length - 1).filter(p => Math.abs(p[1] - flussW(p[0])) > 3).map(p => [p[0], p[1], hoehe(p[0], p[1])]), 4.5, PAL.erde, .12); }
 // ---- Tiere ueberall (18.10. 22 Uhr): Huehner + Katzen an Huetten in allen Vierteln und Dorf 2, Rehe/Fuechse/Hasen am Waldrand und auf Lichtungen.
 // Alle instanziert (je Tierart + Material ein Draw-Call), nie im Wasser oder auf Wegen. Die Tiere der Mitte bleiben wie sie sind.
