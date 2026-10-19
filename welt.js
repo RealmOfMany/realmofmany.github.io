@@ -1643,7 +1643,9 @@ const RITT = (() => { const S = (DATEN.wege || []).filter(w => w.art === "strass
       if (karre) { g.add(box(2.0, .5, 1.3, mat("holz"), -2.0, .9, 0)); for (const z of [-.7, .7]) { const rad = mesh(new THREE.CylinderGeometry(.45, .45, .1, 10), mat("holzDunkel")); rad.rotation.x = Math.PI / 2; rad.position.set(-2.1, .45, z); g.add(rad); }
         g.add(box(.9, .5, .9, mat("stroh"), -2.1, 1.35, 0)); const m = mensch({ pose: "sitz", tuch: 0x6d5a3a, hut: true }); m.position.set(-1.3, .7, 0); m.rotation.y = Math.PI / 2; g.add(m); }
       else { const m = mensch({ pose: "sitz", tuch: [0x5b4a3a, 0x3f5a6a, 0x7a3a2a][k % 3], hut: k % 2 === 0 }); m.position.set(.05, 1.0, 0); m.rotation.y = Math.PI / 2; g.add(m); }
-      scene.add(g); out.push({ g, s, v: karre ? 1.6 : 2.6, ph: hash(si * 10 + k) * s.L, karre }); } });
+      scene.add(g); LEBEN.wurzeln.push(g); out.push({ g, s, v: karre ? 1.6 : 2.6, ph: hash(si * 10 + k) * s.L, karre }); } });
+  window.__rittDbg = () => out.slice(0, 3).map(r => { let m = 0, v = 0; r.g.traverse(o => { if (o.isMesh) { m++; if (o.visible) v++; } }); return { pos: r.g.position.toArray().map(x => +x.toFixed(1)), parent: r.g.parent === scene, vis: r.g.visible, meshes: m, sicht: v, kinder: r.g.children.length }; });
+  window.__ritt = () => out.map(r => [+r.g.position.x.toFixed(1), +(-r.g.position.z).toFixed(1), r.karre]);
   return { n: out.length, tick(t) { for (const r of out) { const s = r.s, z = (r.ph + t * r.v) % (2 * s.L), d = z < s.L ? z : 2 * s.L - z, rueck = z >= s.L;
       let i = 1; while (i < s.acc.length - 1 && s.acc[i] < d) i++; const a = s.P[i - 1], b = s.P[i], f = (d - s.acc[i - 1]) / Math.max(.01, s.acc[i] - s.acc[i - 1]);
       const side = rueck ? -1.1 : 1.1, dx = b[0] - a[0], dw = b[1] - a[1], l = Math.hypot(dx, dw) || 1, u = a[0] + dx * f - dw / l * side, w = a[1] + dw * f + dx / l * side;
