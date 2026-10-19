@@ -900,7 +900,9 @@ const BAUTEN = {
       const hals = box(.3, .8, .32, m, .78, 1.55, 0); hals.rotation.z = grasen ? -1.9 : -.55; p.add(hals); const kopf = box(.55, .28, .26, m, grasen ? 1.15 : 1.08, grasen ? .55 : 1.95, 0); kopf.rotation.z = grasen ? -1.1 : -.25; p.add(kopf);
       const mahne = box(.08, .7, .1, dk, .66, 1.75, 0); mahne.rotation.z = -.55; if (!grasen) p.add(mahne); const sw = box(.1, .7, .1, dk, -.8, .95, 0); sw.rotation.z = .4; p.add(sw);
       p.position.set(x, 0, z); p.rotation.y = ry; g.add(p); };
-    pferd(0x7a4a28, 2.2, .9, .4, false); pferd(0xe8e0d0, 3.4, -1.3, 2.3, true);
+    const n = gd.pferde || 2, fells = [0x7a4a28, 0xe8e0d0, 0x3a2a1c, 0x9a7a50, 0x5a3a20, 0xc8b8a0];
+    if (n <= 2) { pferd(0x7a4a28, 2.2, .9, .4, false); pferd(0xe8e0d0, 3.4, -1.3, 2.3, true); }
+    else for (let i = 0; i < n; i++) pferd(fells[i % fells.length], .2 + (i % 3) * 1.9 + (Math.floor(i / 3) % 2) * .6, -2.2 + Math.floor(i / 3) * 1.6, .4 + i * 1.3, i % 3 === 1);
     const trog = box(1.4, .35, .45, mat("holzDunkel"), .6, .2, -2.5); g.add(trog);
     return g; },
   schneiderbank() {   // 19.10.: Werkbank des Schneiders vor der Huette — Stoffballen, Schere, Garnrollen
@@ -1007,7 +1009,7 @@ Object.assign(BAUTEN, {
     // Traenke (Wasser) am Fluss-Ende der Weide + Futterraufe
     g.add(box(3.4, .5, .7, holz, 4.5, dh(4.5, -LZ / 2 + 1.4) + .25, -LZ / 2 + 1.4)); g.add(box(3.1, .05, .45, mat(0x4f7f8f), 4.5, dh(4.5, -LZ / 2 + 1.4) + .5, -LZ / 2 + 1.4));
     g.add(box(2.2, .6, .5, holz, -6.5, dh(-6.5, -2.5) + .55, -2.5));
-    ZUS.pos.weide = { gd, LX, LZ, sx, sz, sw, sd };
+    if (gd.id === "weidestall-1" || !ZUS.pos.weide) ZUS.pos.weide = { gd, LX, LZ, sx, sz, sw, sd };
     return g; },
   wassermuehle(gd) {   // Wassermuehle am Ufer: Stein-Erdgeschoss, Holz-Obergeschoss, Lastenbalken, Muehlstein, Wasserrad (dreht, steht im Bach)
     const g = new THREE.Group(), l = 5.4, b = 4.2, y0 = .35, hu = 2.1, ho2 = 1.7, h0 = hoehe(gd.u, gd.w), R = 1.5;
@@ -1616,10 +1618,41 @@ const zFrei = (cu, cw, rot, r, rmin) => {   // freie Stellen rund um eine Huette
   const MH = zGeb("wassermuehle-1"), f = zFig("mueller")[0];
   if (MH && f) { const [u, w] = ZL2W(MH, .7, 2.1 + 1.6), m = zFigur(u, w, MH.rot + .25, { tuch: 0xcdb98a, hut: false, haube: false, pose: "sack" });
     ZUS.mueller = { m, u, w, h: f.handle }; ZUS.pos.mueller = { u, w }; } }
+{ // ---- 19.10. abends: Herden auf allen weiteren Weiden (gleiche Weide-Form 20 x 13 m), je Weide ein InstancedMesh-Satz
+  const hash = n => { const s = Math.sin(n * 127.1 + 311.7) * 43758.5453; return s - Math.floor(s); };
+  const teile = { schaf: zerlegen(schaf()), kuh: zerlegen(zKuh()) }, M4 = new THREE.Matrix4(), Q4 = new THREE.Quaternion(), V3 = new THREE.Vector3(), SC = new THREE.Vector3(), E3 = new THREE.Euler();
+  ZUS.herden = [];
+  for (const WS of W_GEB.filter(g => g.typ === "weidestall" && g.id !== "weidestall-1")) {
+    const n = WS.tiere || 10, tiere = [];
+    for (let i = 0; i < n; i++) { const x = -7 + (i % 5) * 3.4 + hash(i + WS.u) * 1.2, z = -3.8 + Math.floor(i / 5) * 3.6 + hash(i + WS.w) * .9;
+      tiere.push({ art: i % 4 === 3 ? "kuh" : "schaf", x, z, ax: Math.max(.5, Math.min(1.2 + hash(i) * 1.4, 8.7 - Math.abs(x))), az: Math.max(.4, Math.min(1 + hash(i + 9), 5.3 - Math.abs(z))), w1: .11 + hash(i + 3) * .08, w2: .09 + hash(i + 5) * .08, p1: hash(i + 1) * 6.28, p2: hash(i + 2) * 6.28, s: i % 4 === 3 ? 1.15 : 1 }); }
+    const arten = {}; for (const art of ["schaf", "kuh"]) { const lst = tiere.filter(x => x.art === art); if (!lst.length) continue; arten[art] = { lst, ims: teile[art].map(t => { const im = new THREE.InstancedMesh(t.geo, t.m, lst.length); im.castShadow = false; im.receiveShadow = true; im.frustumCulled = false; scene.add(im); return im; }) }; }
+    const pos = (a, t) => ZL2W(WS, a.x + a.ax * Math.sin(a.w1 * t + a.p1), a.z + a.az * Math.sin(a.w2 * t + a.p2));
+    const h = { n, tick(t) { for (const art in arten) { const A = arten[art]; A.lst.forEach((a, i) => { const [u, w] = pos(a, t), [u2, w2] = pos(a, t + .4);
+        M4.compose(V3.set(u, hoehe(u, w), -w), Q4.setFromEuler(E3.set(0, Math.atan2(w2 - w, u2 - u), 0)), SC.set(a.s, a.s, a.s)); A.ims.forEach(im => im.setMatrixAt(i, M4)); }); A.ims.forEach(im => { im.instanceMatrix.needsUpdate = true; }); } } };
+    h.tick(0); ZUS.herden.push(h); }
+}
+// ---- 19.10. abends: Reiter + Karren auf den Strassen zwischen den Doerfern (Anthony: „2 Pferde auf 3000 Menschen wäre ziemlich traurig“)
+const RITT = (() => { const S = (DATEN.wege || []).filter(w => w.art === "strasse" && w.linie.length > 3).map(w => { const P = w.linie; let L = 0; const acc = [0];
+    for (let i = 1; i < P.length; i++) { L += Math.hypot(P[i][0] - P[i - 1][0], P[i][1] - P[i - 1][1]); acc.push(L); } return { P, L, acc }; }).filter(x => x.L > 120);
+  const out = [], hash = n => { const s = Math.sin(n * 91.7 + 17.3) * 43758.5; return s - Math.floor(s); };
+  const pferd = fell => { const p = new THREE.Group(), m = mat(fell), dk = mat(0x2a1e16); p.add(box(1.5, .62, .55, m, 0, 1.15, 0)); for (const [lx, lz] of [[.55, .2], [.55, -.2], [-.55, .2], [-.55, -.2]]) p.add(box(.14, .9, .14, m, lx, .45, lz));
+    const hl = box(.3, .8, .32, m, .78, 1.55, 0); hl.rotation.z = -.55; p.add(hl); const kp = box(.55, .28, .26, m, 1.08, 1.95, 0); kp.rotation.z = -.25; p.add(kp); const sw = box(.1, .7, .1, dk, -.8, .95, 0); sw.rotation.z = .4; p.add(sw); return p; };
+  S.forEach((s, si) => { const n = Math.max(2, Math.round(s.L / 140)); for (let k = 0; k < n; k++) { const g = new THREE.Group(), fell = [0x7a4a28, 0xe8e0d0, 0x3a2a1c, 0x9a7a50][(si * 3 + k) % 4];
+      const pf = pferd(fell); g.add(pf); const karre = (si + k) % 3 === 2;
+      if (karre) { g.add(box(2.0, .5, 1.3, mat("holz"), -2.0, .9, 0)); for (const z of [-.7, .7]) { const rad = mesh(new THREE.CylinderGeometry(.45, .45, .1, 10), mat("holzDunkel")); rad.rotation.x = Math.PI / 2; rad.position.set(-2.1, .45, z); g.add(rad); }
+        g.add(box(.9, .5, .9, mat("stroh"), -2.1, 1.35, 0)); const m = mensch({ pose: "sitz", tuch: 0x6d5a3a, hut: true }); m.position.set(-1.3, .7, 0); m.rotation.y = Math.PI / 2; g.add(m); }
+      else { const m = mensch({ pose: "sitz", tuch: [0x5b4a3a, 0x3f5a6a, 0x7a3a2a][k % 3], hut: k % 2 === 0 }); m.position.set(.05, 1.0, 0); m.rotation.y = Math.PI / 2; g.add(m); }
+      scene.add(g); out.push({ g, s, v: karre ? 1.6 : 2.6, ph: hash(si * 10 + k) * s.L, karre }); } });
+  return { n: out.length, tick(t) { for (const r of out) { const s = r.s, z = (r.ph + t * r.v) % (2 * s.L), d = z < s.L ? z : 2 * s.L - z, rueck = z >= s.L;
+      let i = 1; while (i < s.acc.length - 1 && s.acc[i] < d) i++; const a = s.P[i - 1], b = s.P[i], f = (d - s.acc[i - 1]) / Math.max(.01, s.acc[i] - s.acc[i - 1]);
+      const side = rueck ? -1.1 : 1.1, dx = b[0] - a[0], dw = b[1] - a[1], l = Math.hypot(dx, dw) || 1, u = a[0] + dx * f - dw / l * side, w = a[1] + dw * f + dx / l * side;
+      r.g.position.set(u, hoehe(u, w) + (r.karre ? 0 : .04 * Math.abs(Math.sin(t * 8))), -w); r.g.rotation.y = Math.atan2(rueck ? -dw : dw, rueck ? -dx : dx); } } }; })();
 function ZUSAGEN_LEBEN(t) {
   t = ZUS.frieren != null && ZUS.frieren !== undefined ? ZUS.frieren : t + (ZUS.t0 || 0);
   for (const r of ZUS.raeder) r.rotation.z = -t * .5;
   if (ZUS.herde) ZUS.herde.tick(t);
+  for (const h of ZUS.herden || []) h.tick(t); RITT.tick(t);
   const F = ZUS.falke; if (F) {
     const T = 75, z = t % T, ez = x => x * x * (3 - 2 * x), H0 = hoehe(F.cu, F.cw) + 12, Rr = 17, fl = F.g.userData.fluegel;
     const bahn = a => [F.cu + Math.cos(a) * Rr * 1.2, F.cw + Math.sin(a) * Rr, H0 + 1.6 * Math.sin(a * 2)];
@@ -1806,13 +1839,14 @@ if (CFG.tiere) { const RT = rng(90210), rr2 = (a, b) => a + RT() * (b - a), M4 =
   art("rehe", () => reh(false), rehe, true); art("hasen", hase, hasen); art("fuechse", fuchs, fuechse, true);
   window.__tiere = () => TIERE.n; }
 const GEB_R = { zauberturm: 9, weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2 };
-window.__inventar = () => { let pf = 0; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "CylinderGeometry") pf++; });
+window.__inventar = () => {  window.__pferde = W_GEB.filter(g => g.typ === "stall_klein").reduce((a, g) => a + (g.pferde || 2), 0) + RITT.n;
+ let pf = 0; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "CylinderGeometry") pf++; });
   return { fluss: FLUSS.mesh ? FLUSS.y.length : 0, baeume: window.__waldbaeume || 0, baum_teile: window.__baeume || 0, huetten: LAGE.length,
     huetten_im_wasser: LAGE.filter(l => Math.abs(l.w - flussW(l.u)) < 2.6).length,
     objekte_auf_weg: [...W_DEKO.filter(d => d.u != null && !/reh|hase|voegel|fuchs|huhn/.test(d.typ)).map(d => [d.u, d.w, d.typ]), ...W_GEB.filter(g => /brunnen|holzturm/.test(g.typ)).map(g => [g.u, g.w, g.id]),
       ...(FIG.fass ? [[FIG.fass.u, FIG.fass.w, "fass"]] : []), ...FIG.flaggen.map(f => [f.g.position.x, -f.g.position.z, "flagge"]), ...(FIG.schaukeln || []).map(f => [f.pendel.parent.position.x, -f.pendel.parent.position.z, "schaukel"])]
       .filter(([u, w]) => aufWeg(u, w, 0)).map(x => x[2]),
-    objekte_im_wasser: [...W_GEB.filter(g => GEB_R[g.typ]).map(g => [g.u, g.w, GEB_R[g.typ], g.id]), ...W_DEKO.filter(d => d.u != null).map(d => [d.u, d.w, 1.5, d.typ]), ...(DATEN.figuren || []).filter(f => f.u != null).map(f => [f.u, f.w, 1, f.typ])].filter(([u, w, r]) => Math.abs(w - flussW(u)) - r < 3.6).map(x => x[3]), gebaeude: W_GEB.length, wege: W_WEGE.length, tiere: Object.values(TIERE.n).reduce((a, b) => a + b, 0), tierarten: TIERE.n, tore: W_GEB.reduce((n, g) => n + (g.tore || 0), 0), palisade_luecken: W_GEB.filter(g => g.typ === "palisade_baustelle").map(g => [g.id, g.tore, g.luecken, g.huettenluecken].join(":")).join(" "), palisade_prozent: W_GEB.filter(g => g.typ === "palisade_baustelle").map(g => g.prozent), figuren: (DATEN.figuren || []).length,
+    objekte_im_wasser: [...W_GEB.filter(g => GEB_R[g.typ]).map(g => [g.u, g.w, GEB_R[g.typ], g.id]), ...W_DEKO.filter(d => d.u != null).map(d => [d.u, d.w, 1.5, d.typ]), ...(DATEN.figuren || []).filter(f => f.u != null).map(f => [f.u, f.w, 1, f.typ])].filter(([u, w, r]) => Math.abs(w - flussW(u)) - r < 3.6).map(x => x[3]), gebaeude: W_GEB.length, wege: W_WEGE.length, tiere: Object.values(TIERE.n).reduce((a, b) => a + b, 0), pferde: window.__pferde, weidetiere: (ZUS.herde ? ZUS.herde.n : 0) + (ZUS.herden || []).reduce((a, h) => a + h.n, 0), tierarten: TIERE.n, tore: W_GEB.reduce((n, g) => n + (g.tore || 0), 0), palisade_luecken: W_GEB.filter(g => g.typ === "palisade_baustelle").map(g => [g.id, g.tore, g.luecken, g.huettenluecken].join(":")).join(" "), palisade_prozent: W_GEB.filter(g => g.typ === "palisade_baustelle").map(g => g.prozent), figuren: (DATEN.figuren || []).length,
     viertel: W_VIERTEL.length, deko: W_DEKO.length, schilder: SCH.length, bmax: Math.round(B_MAX) }; };
 gras(Math.round(2600 * NS * (SAISON.schnee ? .35 : 1)), [-30 * NS, 30 * NS], [-28 * NS, 40 * NS]); wolken(6);
 if (SAISON.laub) { const n = 64, im = new THREE.InstancedMesh(new THREE.IcosahedronGeometry(.42, 0), new THREE.MeshStandardMaterial({ flatShading: true, roughness: 1 }), n);   // Laubhaufen (Herbst), 1 Draw-Call
