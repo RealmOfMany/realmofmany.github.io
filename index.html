@@ -41,6 +41,8 @@
   #namen{position:fixed;right:12px;bottom:calc(120px + env(safe-area-inset-bottom));min-height:46px;padding:0 16px;border-radius:23px;border:1.5px solid #8a6a3c;
     background:rgba(253,246,228,.95);color:#2a2118;font:600 15px Georgia,serif;box-shadow:0 3px 10px rgba(50,30,10,.25);z-index:5}
   #namen[aria-pressed="false"]{background:#4a3020;color:#fbefd6;border-color:#c9a04a}
+  #drehen{position:fixed;right:140px;bottom:calc(120px + env(safe-area-inset-bottom));width:46px;height:46px;border-radius:23px;border:1.5px solid #8a6a3c;padding:0;
+    background:rgba(253,246,228,.95);color:#2a2118;font:600 22px Georgia,serif;line-height:1;box-shadow:0 3px 10px rgba(50,30,10,.25);z-index:5}
   #laden{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;font-size:17px;color:#5c4526;background:#e7e0cc;transition:opacity .6s}
   /* KARTE-KOMPAKT (19.10.): eingeklappt eine Zeile, Tippen klappt auf */
   #kopf{cursor:pointer;-webkit-tap-highlight-color:transparent}
@@ -63,6 +65,7 @@
   <div id="optout">Every follower gets a house. Don't want your house shown? DM us.</div>
 </div>
 <button id="namen" type="button" aria-pressed="true">Names: on</button>
+<button id="drehen" type="button" aria-label="Rotate view" title="Rotate (Q/E, right-drag)">↻</button>
 <div id="laden">The fog is lifting…</div>
 <script type="importmap">{"imports":{"three":"./vendor/three.module.js"}}</script>
 <script type="module">

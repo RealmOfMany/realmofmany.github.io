@@ -2190,7 +2190,8 @@ function niederschlag() {
   pts.frustumCulled = false; pts.renderOrder = 20; scene.add(pts);
   const o = { pts, aus: false, tick(t) { if (o.aus) return; const B = K.b * 1.15, T = K.b * (innerHeight / innerWidth) * 2.3, H = 24, v = schnee ? 1.4 : 16;
     for (let i = 0; i < n; i++) { const [a, b, c2] = zuf[i]; const y = H - ((t * v * (.8 + .4 * a) + c2 * H) % H);
-      pos[3 * i] = K.u + (a - .5) * B + (schnee ? .5 * Math.sin(t * .7 + i) : 0); pos[3 * i + 1] = y; pos[3 * i + 2] = -(K.w + (b - .5) * T + y * .45); }
+      const x = (a - .5) * B + (schnee ? .5 * Math.sin(t * .7 + i) : 0), zz = (b - .5) * T + y * .45, [ru, rw] = RECHTS(), [vu, vw] = VORN();
+      pos[3 * i] = K.u + x * ru + zz * vu; pos[3 * i + 1] = y; pos[3 * i + 2] = -(K.w + x * rw + zz * vw); }
     geo.attributes.position.needsUpdate = true; } };
   return o; }
 // Antippen (kurz, ohne Ziehen) -> Bewohner-Figur zeigen
@@ -2227,20 +2228,35 @@ const K = { b: startB, u: (RU[0] + RU[1]) / 2, w: (RW[0] + RW[1]) / 2 + .02 * st
 const START = { b: K.b, u: K.u, w: K.w };
 const ALLE_U = [0, ...LAGE.map(l => l.u), ...DOERFER.flatMap(d => [d.u - 250, d.u + 250])], B_WEIT = (Math.max(...ALLE_U) - Math.min(...ALLE_U)) * 1.12 + 60;   // 18.10. Fix: weit genug fuer beide Doerfer
 const B_MIN = 12, B_MAX = Math.min(Math.max(60, startB * 1.4, B_WEIT), TER * .5);   // nie weiter heraus, als Gelaende da ist
-function ansicht() { klemmen(); const z = K.b; kamera(c, z, K.u, K.w + .10 * z * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180) * .5, window.__az ?? -4, window.__el ?? 33, window.__zy || 0); }   // TURM-1910 (nur Pruefung: Orbit)
+// 19.10. spät: Welt drehen (nur Azimut, Neigung bleibt) — DREH in Grad, weich zum Ziel
+let DREH = 0, DREH_ZIEL = 0; const drehRad = () => DREH * Math.PI / 180, VORN = () => [-Math.sin(drehRad()), Math.cos(drehRad())], RECHTS = () => [Math.cos(drehRad()), Math.sin(drehRad())];
+let DREH_T = performance.now();
+function ansicht() { const jetzt = performance.now(), dt = Math.min(.5, (jetzt - DREH_T) / 1000); DREH_T = jetzt; if (Math.abs(DREH_ZIEL - DREH) > .05) DREH += (DREH_ZIEL - DREH) * Math.min(1, dt * 7); else DREH = DREH_ZIEL;
+  klemmen(); const z = K.b, off = .10 * z * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180) * .5, [vu, vw] = VORN();
+  kamera(c, z, K.u + off * vu, K.w + off * vw, window.__az ?? (-4 + DREH), window.__el ?? 33, window.__zy || 0); }
+window.__drehen = g => { DREH_ZIEL = DREH = g; };   // TURM-1910 (nur Pruefung: Orbit)
 const zeiger = new Map(); let zieh = null, pinch = null;
 const cv = renderer.domElement; cv.style.touchAction = "none";
-cv.addEventListener("pointerdown", e => { zeiger.set(e.pointerId, [e.clientX, e.clientY]); K.ziel = null; if (zeiger.size === 1) zieh = [e.clientX, e.clientY, K.u, K.w]; else { zieh = null; const [a, b] = [...zeiger.values()]; pinch = [Math.hypot(a[0] - b[0], a[1] - b[1]), K.b]; } });
+let drehZieh = null; cv.addEventListener("contextmenu", e => e.preventDefault());
+cv.addEventListener("pointerdown", e => { if (e.button === 2) { drehZieh = [e.clientX, DREH_ZIEL]; cv.setPointerCapture?.(e.pointerId); return; }
+  zeiger.set(e.pointerId, [e.clientX, e.clientY]); K.ziel = null; if (zeiger.size === 1) zieh = [e.clientX, e.clientY, K.u, K.w]; else { zieh = null; const [a, b] = [...zeiger.values()]; pinch = [Math.hypot(a[0] - b[0], a[1] - b[1]), K.b, Math.atan2(b[1] - a[1], b[0] - a[0]), DREH_ZIEL]; } });
 cv.addEventListener("pointermove", e => { if (!zeiger.has(e.pointerId)) return; zeiger.set(e.pointerId, [e.clientX, e.clientY]);
-  if (pinch && zeiger.size === 2) { const [a, b] = [...zeiger.values()]; K.b = Math.min(B_MAX, Math.max(B_MIN, pinch[1] * pinch[0] / Math.max(20, Math.hypot(a[0] - b[0], a[1] - b[1])))); }
-  else if (zieh) { const s = K.b / innerWidth; K.u = zieh[2] - (e.clientX - zieh[0]) * s; K.w = zieh[3] + (e.clientY - zieh[1]) * s / Math.sin(33 * Math.PI / 180); klemmen(); } });
+  if (pinch && zeiger.size === 2) { const [a, b] = [...zeiger.values()]; K.b = Math.min(B_MAX, Math.max(B_MIN, pinch[1] * pinch[0] / Math.max(20, Math.hypot(a[0] - b[0], a[1] - b[1]))));
+    let dw = Math.atan2(b[1] - a[1], b[0] - a[0]) - pinch[2]; dw = Math.atan2(Math.sin(dw), Math.cos(dw)); if (Math.abs(dw) > .05 || pinch[4]) { pinch[4] = true; DREH_ZIEL = DREH = pinch[3] + dw * 180 / Math.PI; } }
+  else if (zieh) { const s = K.b / innerWidth, dx = (e.clientX - zieh[0]) * s, dy = (e.clientY - zieh[1]) * s / Math.sin(33 * Math.PI / 180), [ru, rw] = RECHTS(), [vu, vw] = VORN();
+    K.u = zieh[2] - dx * ru + dy * vu; K.w = zieh[3] - dx * rw + dy * vw; klemmen(); } });
+window.addEventListener("pointermove", e => { if (drehZieh) DREH_ZIEL = DREH = drehZieh[1] + (e.clientX - drehZieh[0]) * .35; });
+window.addEventListener("pointerup", e => { if (e.button === 2) drehZieh = null; });
+window.addEventListener("keydown", e => { if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return; const k = e.key.toLowerCase(); if (k === "q") DREH_ZIEL -= 22.5; else if (k === "e") DREH_ZIEL += 22.5; });
 const los = e => { zeiger.delete(e.pointerId); if (zeiger.size < 2) pinch = null; if (zeiger.size === 0) zieh = null; };
 cv.addEventListener("pointerup", los); cv.addEventListener("pointercancel", los);
 cv.addEventListener("wheel", e => { e.preventDefault(); K.ziel = null; K.b = Math.min(B_MAX, Math.max(B_MIN, K.b * (1 + Math.sign(e.deltaY) * .1))); }, { passive: false });
 function klemmen() { const g = Math.max(maxR + 6, (RU[1] - RU[0]) / 2 + 8, (RW[1] - RW[0]) / 2 + 8); K.u = Math.max(-g, Math.min(g, K.u)); K.w = Math.max(-g * 1.2, Math.min(g * 1.3, K.w));
   // Randschutz: sichtbares Rechteck (Breite b, Tiefe b*ASP/sin) bleibt innerhalb des Gelaendes
   K.b = Math.min(K.b, B_MAX); const hu = K.b / 2, hw = K.b * ASPS / SINE / 2 + 4, off = .10 * K.b * ASPS / Math.sin(31 * Math.PI / 180) * .5, R2 = TER / 2 - 6;
-  K.u = Math.max(-R2 + hu, Math.min(R2 - hu, K.u)); const wt = Math.max(2 - R2 + hw, Math.min(2 + R2 - hw, K.w + off)); K.w = wt - off; }
+  if (Math.abs(((DREH % 360) + 360) % 360) < .01) { K.u = Math.max(-R2 + hu, Math.min(R2 - hu, K.u)); const wt = Math.max(2 - R2 + hw, Math.min(2 + R2 - hw, K.w + off)); K.w = wt - off; return; }
+  const rr = Math.min(R2 * .9, Math.max(hu, hw)), [vu, vw] = VORN(), mu = K.u + off * vu, mw = K.w + off * vw, cu2 = Math.max(-R2 + rr, Math.min(R2 - rr, mu)), cw2 = Math.max(2 - R2 + rr, Math.min(2 + R2 - rr, mw));
+  K.u += cu2 - mu; K.w += cw2 - mw; }
 
 // ---- Namensschilder (nur Handle), Suche
 const SCH = [], neuSchild = (l, html, art) => { const d = document.createElement("div"); d.className = "schild" + (art ? " " + art : ""); d.innerHTML = html; HUD.schilder.appendChild(d); SCH.push({ l, d }); };
@@ -2333,7 +2349,8 @@ let NAMENSCHILDER = true; try { NAMENSCHILDER = localStorage.getItem("realm-name
 { const k = document.getElementById("namen"); const setz = () => { if (k) { k.textContent = NAMENSCHILDER ? "Names: on" : "Names: off"; k.setAttribute("aria-pressed", String(NAMENSCHILDER)); } };
   setz(); if (k) k.addEventListener("click", () => { NAMENSCHILDER = !NAMENSCHILDER; try { localStorage.setItem("realm-namen", NAMENSCHILDER ? "an" : "aus"); } catch (e) {} setz(); }); }
 window.__namen = an => { NAMENSCHILDER = an; };
-{ const k = document.getElementById("namen"); if (k) KARTEN.push(k); }   // Schilder weichen dem Knopf aus
+{ const k = document.getElementById("namen"); if (k) KARTEN.push(k); }
+{ const k = document.getElementById("drehen"); if (k) { k.addEventListener("click", () => { DREH_ZIEL = Math.round((DREH_ZIEL + 45) / 45) * 45; }); KARTEN.push(k); } }   // Schilder weichen dem Knopf aus
 function schilder() {
   const nah = K.b < 42 && NAMENSCHILDER, W = innerWidth, H = innerHeight, kand = [];
   if (FIGURSCHILD.l.slot?.z) FIGURSCHILD.l.dach.setFromMatrixPosition(FIGURSCHILD.l.slot.kopf.matrixWorld).y += 1.2;
