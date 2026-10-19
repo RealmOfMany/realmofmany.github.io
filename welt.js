@@ -1244,7 +1244,7 @@ uhrText();
 // ---- Lage der Haeuser: in Einzugsreihenfolge auf einer Spirale um das Feuer, frei von Bach/Feuer/Unterstand; Fischerhuetten ans Ufer
 WEILER = false; flussW = u => 9.5 + 1.8 * Math.sin(u / 5) + .6 * Math.sin(u / 2.3); PFADE = []; PLATZ = [[0, 0, 2.6]]; hoeheFn = hoeheDorf;
 const DORF_MITTE_W = 19.5, LAGE = [], belegt = [[0, 0, 4.5], [-3.6, .9, 3.2], [1.9, .5, 2]];
-const DOERFER = [DATEN.dorf2, DATEN.dorf3].map((d, i) => d && d.status === "angelegt" ? Object.assign(d, { nr: i + 2 }) : null).filter(Boolean);   // 18.10. 22:30: weitere Doerfer
+const DOERFER = [DATEN.dorf2, DATEN.dorf3, DATEN.dorf4].map((d, i) => d && d.status === "angelegt" ? Object.assign(d, { nr: i + 2 }) : null).filter(Boolean);   // 18.10. 22:30: weitere Doerfer
 const W_GEB = DATEN.gebaeude || [], W_BP = DATEN.bauplaetze || [], W_DEKO = DATEN.deko || [], W_BERUFE = DATEN.berufe || {};   // aus data/welt-zustand.json (17.10.)
 for (const g of W_GEB) belegt.push([g.u, g.w, 5.2]); for (const g of W_BP) belegt.push([g.u, g.w, 3.0]); for (const g of W_DEKO) belegt.push([g.u, g.w, 1.6]);
 for (const h of DATEN.haeuser) if (h.u !== undefined) belegt.push([h.u, h.w, h.typ === "langhaus" ? 9.0 : h.typ === "steinhaus_paar" ? 6.5 : 3.0]);   // v3: gespeicherte Plaetze (lage.py)
@@ -1790,8 +1790,9 @@ if (CFG.tiere) { const RT = rng(90210), rr2 = (a, b) => a + RT() * (b - a), M4 =
   // Huehner + Katzen an Huetten (jede ~6. Huette ein kleiner Trupp, jede ~40. eine Katze vor der Tuer)
   const huehner = [[], []], katzen = [];
   LAGE.forEach((l, i) => { if (l.typ === "langhaus" || Math.hypot(l.u, l.w) < 12) return; const z = Math.abs(Math.round(l.u * 31 + l.w * 17));
-    if (z % 6 === 0) { const n = 2 + z % 3; for (let k = 0; k < n; k++) { const u = l.u + rr2(-3, 3), w = l.w - rr2(2.6, 4.6); if (ok(u, w, .3)) huehner[k % 2].push([u, w, RT() * 6.283, rr2(.9, 1.1)]); } }
-    if (z % 40 === 7) { const u = l.u + rr2(-1.2, 1.2), w = l.w - 3.1; if (ok(u, w, .3)) katzen.push([u, w, RT() * 6.283, .9]); } });
+    const platz = (u, w) => { if (ok(u, w, .3)) return [u, w]; for (const [du, dw] of [[1.4, 0], [-1.4, 0], [0, -1.4], [2.2, -1], [-2.2, -1], [0, 1.6]]) if (ok(u + du, w + dw, .3) && !LAGE.some(x => Math.hypot(x.u - u - du, x.w - w - dw) < 2.6)) return [u + du, w + dw]; return null; };   // 19.10.: ausweichen statt verschwinden
+    if (z % 6 === 0) { const n = 2 + z % 3; for (let k = 0; k < n; k++) { const p_ = platz(l.u + rr2(-3, 3), l.w - rr2(2.6, 4.6)); if (p_) huehner[k % 2].push([p_[0], p_[1], RT() * 6.283, rr2(.9, 1.1)]); } }
+    if (z % 40 === 7) { const p_ = platz(l.u + rr2(-1.2, 1.2), l.w - 3.1); if (p_) katzen.push([p_[0], p_[1], RT() * 6.283, .9]); } });
   art("huehner_weiss", () => huhn(0xf2ece0), huehner[0]); art("huehner_braun", () => huhn(0x9a5a2a), huehner[1]); art("katzen", katz, katzen);
   // Waldrand + Lichtungen: Ring um jedes offene Viertel und um beide Dorfplaetze (dort beginnt der Wald), dazu leere Viertel als Lichtung
   const orte = [...VOFFEN.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_VIERTEL.filter(v => !v.offen && v.id !== "kern").map(v => [v.mitte.u, v.mitte.w, v.r * .6, true])];
