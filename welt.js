@@ -1779,7 +1779,7 @@ if (FIG.katze) { neuSchild({ u: 0, w: 0, dach: new THREE.Vector3(), groesse: 3, 
   if (ZUS.mueller) { const M = ZUS.mueller; Z(M.u, M.w, hoehe(M.u, M.w) + 4.0, hd(M.h, "Miller"), null, 6, [M.h]); }
   const WS = ZUS.pos.herde; if (WS) Z(WS.u, WS.w, hoehe(WS.u, WS.w) + 3.4, `<span>Pasture</span><span class="klein">sheep &amp; cattle by the river</span>`, "arbeit", 14, [], PRIO.arbeit + 5);
   const MP = ZUS.pos.muehle; if (MP) Z(MP.gd.u, MP.gd.w, hoehe(MP.gd.u, MP.gd.w) + 7.2, `<span>Watermill</span><span class="klein">the wheel turns in the stream</span>`, "arbeit", 9, [], PRIO.arbeit + 5);
-  const WH = W_GEB.find(g => g.id === "wachhaus-1"); if (WH) Z(WH.u, WH.w, hoehe(WH.u, WH.w) + 5.4, `<span>Guardhouse</span><span class="klein">main gate</span>`, "arbeit", 9, [], PRIO.arbeit + 5); }
+  const WH = W_GEB.find(g => g.id === "wachhaus-1"); if (WH) Z(WH.u, WH.w, hoehe(WH.u, WH.w) + 5.4, `<span>Guardhouse</span><span class="klein">${esc(WH.tor || "main gate")}</span>`, "arbeit", 9, [], PRIO.arbeit + 5); }
 // ==== /ZUSAGEN-1810:SCHILDER ====
 for (const bp of W_BP) { const y = hoehe(bp.u, bp.w) + 1.6;
   if (bp.fuer_handle) neuSchild({ u: bp.u, w: bp.w, dach: new THREE.Vector3(bp.u, y, -bp.w), groesse: 6, bewohner: [], platz: bp.fuer_handle, prio: PRIO.platz }, `<span class="hd">@${esc(bp.fuer_handle)}</span><span class="klein">cabin coming</span>`, "platz");
