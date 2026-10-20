@@ -745,6 +745,7 @@ const bergArbeiter = (g, x, z, ry, tuch, hacke = true) => { const m = new THREE.
   const arm = box(.13, .62, .14, t, .31, 1.3, .15); arm.rotation.x = -1.6; m.add(arm); m.add(box(.13, .62, .14, t, -.31, 1.1, 0));
   if (hacke) { const st = box(.05, 1.1, .05, mat("stamm"), .31, 1.65, .7); st.rotation.x = -.5; m.add(st); const kp = box(.5, .08, .08, mat(0x777777), .31, 2.1, .95); m.add(kp); }
   m.position.set(x, 0, z); m.rotation.y = ry; m.scale.setScalar(1.1); g.add(m); };
+const UEBEN = [];   // 20.10.: Soldaten an der Strohpuppe (Schwertschlag), bewegt -> nicht ins statische Zusammenfassen
 const BAUTEN = {
   holzfaellerhuette() {
     const g = new THREE.Group(), l = 4.6, b = 3.6, h = 2.1, st = { fundament: [], waende: [], dach: [], rest: [] };
@@ -1001,6 +1002,37 @@ const BAUTEN = {
       const angel = box(.04, 3.4, .04, mat("stamm"), .3, 2.1, .9); angel.rotation.x = .75; m.add(angel); m.add(box(.01, 2.4, .01, mat(0xe8e4d8), .3, 1.1, 2.1));
       m.scale.setScalar(1.1); m.position.set(1.8, .6, 1.2 + stegL - .6); g.add(m); g.userData.meisterP = new THREE.Vector3(1.8, 3.0, 1.2 + stegL - .6); }
     gd._g = g; return g; },
+  kirche(gd) {   // 20.10.: Upgrade Part 5 (most ♥: @kieranchittock „A catherdral or a humble church is surely needed“, 14♥) — Steinkirche mit Glockenturm (Dorf 1 groß), Kapelle in den anderen Dörfern; Geistliche mit Selbstbezug vor dem Portal
+    const g = new THREE.Group(), stein = mat(0xb8b0a0), stein2 = mat(0x9a9284), dach = mat(0x5a4a44), holz = mat("holzDunkel"), gold = mat(0xd8b040), glas = mat(0x3a5a8a);
+    const L = 11, Bb = 6, H = 5.2;
+    g.add(box(L + .4, .5, Bb + .4, stein2, 0, .25, -2)); g.add(box(L, H, Bb, stein, 0, .5 + H / 2, -2));
+    const d = new THREE.Mesh(new THREE.CylinderGeometry(.01, Bb * .62, 3.6, 4, 1), dach); d.rotation.y = Math.PI / 4; d.scale.set(1, 1, L / (Bb * .88)); d.rotation.set(0, 0, 0);
+    const roof = new THREE.Group(); for (const sx of [-1, 1]) { const pl = box(Bb * .62, .18, L + .6, dach, sx * Bb * .26, 0, 0); pl.rotation.z = -sx * .85; roof.add(pl); } roof.position.set(0, .5 + H + 1.15, -2); roof.rotation.y = Math.PI / 2; g.add(roof);
+    for (const sx of [-1, 1]) { const gi = box(.2, 2.4, Bb * .9, stein, sx * L / 2, .5 + H + 1.0, -2); g.add(gi); }
+    for (let i = 0; i < 4; i++) for (const sz of [-1, 1]) { const f = box(.7, 1.8, .1, glas, -3.6 + i * 2.4, 3.2, -2 + sz * (Bb / 2 + .02)); g.add(f); g.add(box(.9, .2, .14, stein2, -3.6 + i * 2.4, 4.2, -2 + sz * (Bb / 2 + .03))); }
+    for (let i = 0; i < 4; i++) for (const sz of [-1, 1]) g.add(box(.5, H * .8, .6, stein2, -4.8 + i * 3.2, .5 + H * .4, -2 + sz * (Bb / 2 + .25)));   // Strebepfeiler
+    // Turm vorn (+z Seite = Portal), Turmhelm, Kreuz, Glocke
+    const T = new THREE.Group(); T.add(box(3.2, 9.5, 3.2, stein, 0, 4.75, 0)); T.add(box(3.5, .4, 3.5, stein2, 0, 9.5, 0));
+    const helm = new THREE.Mesh(new THREE.ConeGeometry(2.3, 4.6, 4), dach); helm.rotation.y = Math.PI / 4; helm.position.y = 12.0; T.add(helm);
+    T.add(box(.14, 1.4, .14, gold, 0, 14.9, 0)); T.add(box(.8, .14, .14, gold, 0, 15.1, 0));
+    T.add(box(1.1, 1.6, .1, mat(0x1a1612), 0, 7.6, 1.62)); const gl = new THREE.Mesh(new THREE.CylinderGeometry(.25, .45, .6, 10), gold); gl.position.set(0, 7.5, 1.3); T.add(gl);
+    const rose = new THREE.Mesh(new THREE.CylinderGeometry(.55, .55, .12, 14), glas); rose.rotation.x = Math.PI / 2; rose.position.set(0, 5.0, 1.62); T.add(rose);
+    T.add(box(1.5, 2.6, .14, holz, 0, 1.3, 1.62)); const bog = new THREE.Mesh(new THREE.CylinderGeometry(.75, .75, .14, 12, 1, false, 0, Math.PI), holz); bog.rotation.z = Math.PI / 2; bog.rotation.y = Math.PI / 2; bog.position.set(0, 2.6, 1.62); T.add(bog);
+    T.position.set(0, 0, Bb / 2 - 2 + 1.4); g.add(T);
+    g.add(box(4.4, .12, 3.0, mat(0x9a917a), 0, .06, Bb / 2 + 2.2));   // Vorplatz
+    for (const sx of [-1, 1]) { const bk = new THREE.Group(); bk.add(box(1.6, .1, .4, mat("holz"), 0, .45, 0)); for (const x of [-.6, .6]) bk.add(box(.1, .45, .35, mat("holz"), x, .22, 0)); bk.position.set(sx * 3.4, 0, Bb / 2 + 2.6); bk.rotation.y = sx * .3; g.add(bk); }
+    const kreuz = new THREE.Group(); kreuz.add(box(.16, 1.6, .16, stein2, 0, .8, 0)); kreuz.add(box(.7, .14, .14, stein2, 0, 1.25, 0)); kreuz.position.set(-4.6, 0, 3.6); g.add(kreuz);
+    const robe = (x, z, ry, farbe, stab) => { const m = new THREE.Group(), t = mat(farbe);
+      m.add(new THREE.Mesh(new THREE.CylinderGeometry(.2, .36, 1.3, 8), t)); m.children[0].position.y = .65; m.add(box(.44, .5, .3, t, 0, 1.4, 0));
+      const kopf = mesh(new THREE.IcosahedronGeometry(.19, 0), mat(PAL.haut)); kopf.position.y = 1.85; m.add(kopf); m.add(box(.36, .12, .3, t, 0, 2.0, -.05));
+      for (const sx of [-1, 1]) { const a = box(.13, .5, .14, t, sx * .2, 1.35, .15); a.rotation.x = -.9; m.add(a); } m.add(box(.22, .28, .06, mat(0x6a3a2a), 0, 1.3, .32));
+      if (stab) { m.add(box(.05, 2.0, .05, mat("stamm"), .35, 1.0, .1)); m.add(box(.3, .05, .05, gold, .35, 1.95, .1)); }
+      m.position.set(x, 0, z); m.rotation.y = ry; g.add(m); };
+    const leute = gd.leute || [], pl = [[-1.6, Bb / 2 + 2.8], [1.6, Bb / 2 + 2.8], [-.6, Bb / 2 + 3.9], [.9, Bb / 2 + 3.7], [-2.6, Bb / 2 + 3.6], [2.6, Bb / 2 + 3.4]];
+    g.userData.leuteP = []; leute.forEach((l, i) => { const P = pl[i % pl.length]; robe(P[0], P[1], (i % 2 ? -.3 : .3), /friar|monk/i.test(l.rolle) ? 0x6a4a2a : /architect|helper/i.test(l.rolle) ? 0x4a5a3a : 0x2a2a30, /priest/i.test(l.rolle) && i === 0);
+      g.userData.leuteP.push({ h: l.h, rolle: l.rolle, p: new THREE.Vector3(P[0], 2.8, P[1]) }); });
+    if (!gd.gross) g.scale.setScalar(.78); else g.scale.setScalar(1.15);
+    gd._g = g; return g; },
   kaserne(gd) {   // 20.10.: Upgrade Part 4 (most ♥: @olrdyesmaj „A barracks for soldiers to train“, 41♥) — Langhaus aus Stein + Holz, Übungsplatz mit Zaun, Strohpuppen, Waffenständer, Zielscheibe, Banner; Soldaten mit Selbstbezug im Hof
     const g = new THREE.Group(), holz = mat("holz"), hd = mat("holzDunkel"), stroh = mat("stroh"), eisen = mat(0x8a8a8a), rot = mat(0x8a2a2a);
     const h = haus({ l: 11, b: 5, h: 2.6, wand: "stein", dach: "schindel", kamin: true }); h.position.set(0, 0, -4.2); g.add(h);
@@ -1019,9 +1051,11 @@ const BAUTEN = {
     const ring = mesh(new THREE.CylinderGeometry(.3, .3, .16, 14), rot); ring.rotation.x = Math.PI / 2; ring.position.y = 1.2; ziel.add(ring); for (const x of [-.35, .35]) { const b = box(.08, 1.4, .08, mat("stamm"), x, .6, -.2); b.rotation.x = -.25; ziel.add(b); }
     ziel.position.set(4.6, 0, 4.6); ziel.rotation.y = -.5; g.add(ziel);
     for (const [x, z] of [[2.0, -1.2], [2.6, -1.1]]) { const f = mesh(new THREE.CylinderGeometry(.3, .3, .7, 9), hd); f.position.set(x, .35, z); g.add(f); }
-    const soldat = (x, z, ry, farbe, cmd) => { const m = new THREE.Group(), t = mat(farbe);
+    const soldat = (x, z, ry, farbe, cmd, ueben) => { const m = new THREE.Group(), t = mat(farbe);
       for (const dx of [-.11, .11]) m.add(box(.16, .75, .18, mat(0x3a3028), dx, .38, 0)); m.add(box(.48, .72, .32, t, 0, 1.1, 0)); m.add(box(.5, .1, .34, mat(0x5a4030), 0, .8, 0));
       const kopf = mesh(new THREE.IcosahedronGeometry(.19, 0), mat(PAL.haut)); kopf.position.y = 1.62; m.add(kopf); const helm = mesh(new THREE.SphereGeometry(.22, 8, 5, 0, 6.283, 0, 1.5), eisen); helm.position.y = 1.7; m.add(helm);
+      if (ueben) { const sch = new THREE.Group(); sch.position.set(.31, 1.42, 0); sch.add(box(.13, .62, .14, t, 0, -.28, 0)); const sw = box(.06, 1.0, .05, eisen, 0, -.55, .45); sw.rotation.x = Math.PI / 2; sch.add(sw); sch.add(box(.22, .05, .08, mat(0x6a5030), 0, -.55, .02));
+        m.add(sch); m.add(box(.13, .62, .14, t, -.31, 1.1, 0)); m.add(box(.08, .55, .45, hd, -.4, 1.1, .1)); m.position.set(x, 0, z); m.rotation.y = ry; m.scale.setScalar(1.1); g.add(m); UEBEN.push({ m, sch, ph: (x * 7 + z * 3) % 6.28 }); return m; }
       const arm = box(.13, .62, .14, t, .31, 1.3, .15); arm.rotation.x = -1.2; m.add(arm); m.add(box(.13, .62, .14, t, -.31, 1.1, 0));
       if (cmd) { const um = box(.56, .9, .06, rot, 0, 1.05, -.2); m.add(um); const sw = box(.05, .9, .05, eisen, .31, 1.75, .55); sw.rotation.x = -.9; m.add(sw); }
       else { const sp = box(.05, 2.2, .05, mat("stamm"), .31, 1.4, .45); sp.rotation.x = -.35; m.add(sp); m.add(box(.06, .25, .06, eisen, .31, 2.45, .85)); m.add(box(.08, .55, .45, hd, -.4, 1.1, .1)); }
@@ -1555,7 +1589,7 @@ const LEBEN = { rehe: [], hasen: [], voegel: [], laeufer: [], wurzeln: [] };
 for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
   const C = gd.c, PR = gd.r, N = gd.n, PP = [], SEILE = new THREE.Group(); scene.add(SEILE);
   const RAD = gd.radien ? (deg => { const d = ((deg % 360) + 360) % 360, k = Math.floor(d), f = d - k; return gd.radien[k % 360] * (1 - f) + gd.radien[(k + 1) % 360] * f; }) : () => PR;   // 18.10. abends: Radius je Winkel (aeussere Palisade um ganz Dorf 1)
-  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5 };
+  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5 };
   const ARC = [];   // 18.10. abends: Pfaehle nach Bogenlaenge verteilen (bei Radius je Winkel sonst Loecher an Ausbuchtungen)
   if (gd.radien) { let L = 0, q = null; for (let k = 0; k <= 4000; k++) { const deg = gd.von_grad + (gd.bis_grad - gd.von_grad) * k / 4000, a = deg * Math.PI / 180, p = { u: C.u + Math.cos(a) * RAD(deg) * (gd.su || 1), w: C.w + Math.sin(a) * RAD(deg) * (gd.sw || 1), deg };
       if (q) L += Math.hypot(p.u - q.u, p.w - q.w); p.L = L; ARC.push(p); q = p; } }
@@ -2019,7 +2053,7 @@ if (CFG.tiere) { const RT = rng(90210), rr2 = (a, b) => a + RT() * (b - a), M4 =
     else if (x < .9) hasen.push([u, w, RT() * 6.283, 1]); else fuechse.push([u, w, RT() * 6.283, 1]); }
   art("rehe", () => reh(false), rehe, true); art("hasen", hase, hasen); art("fuechse", fuchs, fuechse, true);
   window.__tiere = () => TIERE.n; }
-const GEB_R = { zauberturm: 9, weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5 };
+const GEB_R = { zauberturm: 9, weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5 };
 window.__inventar = () => {  window.__pferde = W_GEB.filter(g => g.typ === "stall_klein").reduce((a, g) => a + (g.pferde || 2), 0) + RITT.n;
  let pf = 0; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "CylinderGeometry") pf++; });
   return { fluss: FLUSS.mesh ? FLUSS.y.length : 0, baeume: window.__waldbaeume || 0, baum_teile: window.__baeume || 0, huetten: LAGE.length,
@@ -2315,7 +2349,7 @@ if (FIG.katze) { neuSchild({ u: 0, w: 0, dach: new THREE.Vector3(), groesse: 3, 
   for (const gd of W_GEB) { if (!gd._g) continue; gd._g.updateMatrixWorld(true);   // 19.10. Tag 4 P1: Fischerhuetten, Oberfischer, Jaegerhuetten, Hexe
     if (gd.typ === "fischerhuette") { Z(gd.u, gd.w, hoehe(gd.u, gd.w) + 4.6, `<span class="klein">${esc(gd.schild || "Fishing hut")}</span>`, "arbeit", 6, [], PRIO.arbeit);
       if (gd.ober && gd._g.userData.oberP) { const q = gd._g.localToWorld(gd._g.userData.oberP.clone()); Z(q.x, -q.z, q.y, hd(gd.ober, "Head fisherman"), null, 6, [gd.ober]); } }
-    if (gd.typ === "kaserne") {   // Bau-Schild kommt schon aus „wish by“
+    if (gd.typ === "kaserne" || gd.typ === "kirche") {   // Bau-Schild kommt schon aus „wish by“
       for (const q of (gd._g && gd._g.userData.leuteP) || []) { const w3 = gd._g.localToWorld(q.p.clone()); Z(w3.x, -w3.z, w3.y, hd(q.h, q.rolle), null, 6, [q.h]); } }
     if (gd.typ === "fischerei") { Z(gd.u, gd.w, hoehe(gd.u, gd.w) + 5.6, `<span>${esc(gd.schild || "Fishery")}</span>`, "arbeit", 7, [], PRIO.arbeit + 3);
       if (gd.meister && gd._g.userData.meisterP) { const q = gd._g.localToWorld(gd._g.userData.meisterP.clone()); Z(q.x, -q.z, q.y, hd(gd.meister, "Fishery master"), null, 6, [gd.meister]); } }
