@@ -2340,8 +2340,8 @@ if (TURM.pos && TURM.pos.figuren) {
 for (const bp of W_BP) { const y = hoehe(bp.u, bp.w) + 1.6;
   if (bp.fuer_handle) neuSchild({ u: bp.u, w: bp.w, dach: new THREE.Vector3(bp.u, y, -bp.w), groesse: 6, bewohner: [], platz: bp.fuer_handle, prio: PRIO.platz }, `<span class="hd">@${esc(bp.fuer_handle)}</span><span class="klein">cabin coming</span>`, "platz");
  }
-for (const gd of W_GEB) if (gd.typ === "holzfaellerhuette") { const hs = Object.keys(W_BERUFE).filter(h => W_BERUFE[h] === "Woodcutter");
-  if (hs.length) neuSchild({ u: gd.u, w: gd.w, dach: new THREE.Vector3(gd.u, hoehe(gd.u, gd.w) + 6.2, -gd.w), groesse: 9, bewohner: [], prio: PRIO.arbeit }, `<span class="klein">${esc(gd.schild || "Woodcutters")}</span>` + hs.map(h => `<span class="hd">@${esc(h)}</span>`).join(""), "arbeit"); }
+{ const ersteHH = W_GEB.find(x => x.typ === "holzfaellerhuette"); for (const gd of W_GEB) if (gd.typ === "holzfaellerhuette") { const AO = DATEN.arbeitsorte || {}, hs = Object.keys(W_BERUFE).filter(h => W_BERUFE[h] === "Woodcutter" && (AO[h] === gd.id || (!W_GEB.some(x => x.id === AO[h]) && gd === ersteHH)));   // 20.10.: je Hütte nur ihre Holzfäller
+  if (hs.length) neuSchild({ u: gd.u, w: gd.w, dach: new THREE.Vector3(gd.u, hoehe(gd.u, gd.w) + 6.2, -gd.w), groesse: 9, bewohner: [], prio: PRIO.arbeit }, `<span class="klein">${esc(gd.schild || "Woodcutters")}</span>` + hs.map(h => `<span class="hd">@${esc(h)}</span>`).join(""), "arbeit"); } }
 if ((DATEN.unterstand || []).length) { const y = hoehe(-3.6, .9) + 2.6;   // Bewohner ohne eigenes Haus: Unterstand am Feuer
   for (const [i, h] of DATEN.unterstand.entries()) neuSchild({ u: -3.6, w: .9, dach: new THREE.Vector3(-3.6, y + i * .9, -.9), groesse: 8, bewohner: [h], prio: PRIO.haus }, `<span class="hd">@${esc(h)}</span><span class="klein">shelter by the fire</span>`); }
 const bauTitel = gd => { const name = gd.name || null, p = gd.prozent ?? Math.round((gd.fortschritt ?? 1) * 100);
