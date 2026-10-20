@@ -1002,6 +1002,41 @@ const BAUTEN = {
       const angel = box(.04, 3.4, .04, mat("stamm"), .3, 2.1, .9); angel.rotation.x = .75; m.add(angel); m.add(box(.01, 2.4, .01, mat(0xe8e4d8), .3, 1.1, 2.1));
       m.scale.setScalar(1.1); m.position.set(1.8, .6, 1.2 + stegL - .6); g.add(m); g.userData.meisterP = new THREE.Vector3(1.8, 3.0, 1.2 + stegL - .6); }
     gd._g = g; return g; },
+  holzhof(gd) {   // 20.10. nachmittags: Upgrade Part 7 (most ♥ unter den Bauwünschen: @idiota.yash „I'd like to make a wood company“, 6♥) — Timber yard: offener Sägeschuppen (geschlossenes Satteldach), Stammstapel, Bretterstapel, Sägebock mit Stamm, Werkbank, Holzkarren, Kontor; Zimmerleute mit Selbstbezug
+    const g = new THREE.Group(), holz = mat("holz"), hd = mat("holzDunkel"), stamm = mat("stamm"), dach = mat("schindel"), brett = mat(0xc8a070);
+    const SL = 8, SB = 5, SH = 2.8, rise = 1.6, a = Math.atan2(rise, SB / 2), sl = Math.hypot(SB / 2, rise) + .5;
+    for (const x of [-SL / 2, 0, SL / 2]) for (const z of [-SB / 2, SB / 2]) g.add(box(.25, SH, .25, stamm, x, SH / 2, z - 1));   // Pfosten
+    for (const z of [-SB / 2, SB / 2]) g.add(box(SL + .3, .25, .25, hd, 0, SH, z - 1));
+    for (const sz of [-1, 1]) { const pl = box(SL + .9, .18, sl, dach); pl.rotation.x = sz * a; pl.position.set(0, SH + rise / 2, -1 + sz * (SB / 4 + .1)); g.add(pl); }
+    g.add(box(SL + 1, .18, .26, hd, 0, SH + rise + .05, -1));
+    const gs = new THREE.Shape(); gs.moveTo(-SB / 2, 0); gs.lineTo(SB / 2, 0); gs.lineTo(0, rise); gs.lineTo(-SB / 2, 0);   // Giebeldreiecke (Bretter) an beiden Enden
+    const gg = new THREE.ExtrudeGeometry(gs, { depth: .12, bevelEnabled: false });
+    for (const sx of [-1, 1]) { const gm = mesh(gg, holz); gm.rotation.y = Math.PI / 2; gm.position.set(sx * SL / 2 - (sx > 0 ? .12 : 0), SH + .1, -1); g.add(gm); }
+    // Sägebock mit Stamm + Langsäge, Säger-Bühne
+    for (const x of [-1.6, 1.6]) { const b = new THREE.Group(); for (const s2 of [-1, 1]) { const l = box(.12, 1.3, .12, hd, 0, .6, s2 * .25); l.rotation.x = s2 * .35; b.add(l); } b.position.set(x, 0, -1); g.add(b); }
+    const st = mesh(new THREE.CylinderGeometry(.32, .36, 5.2, 9), stamm); st.rotation.z = Math.PI / 2; st.position.set(0, 1.25, -1); g.add(st);
+    const saege = box(.03, 1.8, .22, mat(0x9a9a9a), .4, 1.25, -1); g.add(saege); g.add(box(.5, .08, .08, hd, .4, 2.15, -1)); g.add(box(.5, .08, .08, hd, .4, .35, -1));
+    for (let i = 0; i < 18; i++) { const sp = box(.12, .05, .08, brett, -2 + (i % 6) * .7, .03, -1.6 + Math.floor(i / 6) * .5); sp.rotation.y = i; g.add(sp); }   // Sägespäne
+    // Stammstapel (Pyramide) links, Bretterstapel rechts
+    let k = 0; for (let row = 0; row < 3; row++) for (let i = 0; i < 4 - row; i++) { const s3 = mesh(new THREE.CylinderGeometry(.3, .3, 4.2, 8), k++ % 2 ? stamm : hd); s3.rotation.x = Math.PI / 2; s3.position.set(-7.0 + i * .62 + row * .31, .3 + row * .54, 1.2); g.add(s3); }
+    for (const [x, z, n] of [[5.6, 1.6, 7], [7.0, 1.4, 5]]) for (let i = 0; i < n; i++) { const b4 = box(1.0, .1, 3.0, i % 2 ? brett : holz, x, .12 + i * .12, z); b4.rotation.y = i % 2 ? .02 : -.02; g.add(b4); }
+    for (const x of [5.1, 6.1]) g.add(box(.15, .1, 3.0, hd, x, .05, 1.5));
+    const wb = new THREE.Group(); wb.add(box(2.0, .12, .7, holz, 0, .85, 0)); for (const x of [-.85, .85]) for (const z of [-.25, .25]) wb.add(box(.1, .85, .1, hd, x, .42, z)); wb.add(box(.6, .08, .2, mat(0x8a8a8a), .3, .95, 0)); wb.position.set(2.6, 0, 3.2); g.add(wb);
+    const karren = new THREE.Group(); karren.add(box(1.4, .15, 2.4, hd, 0, .7, 0)); for (const sx of [-1, 1]) { const rad = mesh(new THREE.CylinderGeometry(.55, .55, .1, 12), hd); rad.rotation.z = Math.PI / 2; rad.position.set(sx * .78, .55, 0); karren.add(rad); }
+    for (let i = 0; i < 3; i++) { const s4 = mesh(new THREE.CylinderGeometry(.22, .22, 2.6, 8), stamm); s4.rotation.x = Math.PI / 2; s4.position.set(-.4 + i * .4, 1.0, 0); karren.add(s4); }
+    karren.add(box(.08, .08, 1.6, hd, -.3, .7, 1.9)); karren.add(box(.08, .08, 1.6, hd, .3, .7, 1.9)); karren.position.set(-3.8, 0, 3.6); karren.rotation.y = .4; g.add(karren);
+    if (gd.gross) { const k2 = haus({ l: 4.2, b: 3.4, h: 2.3, wand: "holz", dach: "schindel", kamin: true }); k2.position.set(7.4, 0, -3.6); g.add(k2); }   // Kontor der Holzfirma
+    const schild = new THREE.Group(); schild.add(box(.1, 2.0, .1, stamm, 0, 1.0, 0)); schild.add(box(1.4, .6, .08, mat(0xd8c49a), 0, 2.0, .03)); for (let i = 0; i < 3; i++) schild.add(box(1.0, .08, .04, hd, 0, 1.85 + i * .14, .08));
+    schild.position.set(-4.6, 0, 4.8); g.add(schild);
+    const arbeiter = (x, z, ry, farbe) => { const m = new THREE.Group(), t = mat(farbe);
+      for (const dx of [-.11, .11]) m.add(box(.16, .75, .18, mat(0x3a3028), dx, .38, 0)); m.add(box(.46, .7, .3, t, 0, 1.1, 0)); m.add(box(.48, .5, .06, mat(0x7a5a3a), 0, .95, .17));   // Schürze
+      const kopf = mesh(new THREE.IcosahedronGeometry(.19, 0), mat(PAL.haut)); kopf.position.y = 1.62; m.add(kopf); const kap = mesh(new THREE.CylinderGeometry(.2, .22, .14, 8), mat(0x5a3a2a)); kap.position.y = 1.78; m.add(kap);
+      const arm = box(.13, .62, .14, t, .31, 1.3, .15); arm.rotation.x = -1.1; m.add(arm); m.add(box(.13, .62, .14, t, -.31, 1.1, 0)); m.add(box(.08, .5, .08, mat(0x8a8a8a), .31, 1.55, .5));
+      m.position.set(x, 0, z); m.rotation.y = ry; m.scale.setScalar(1.05); g.add(m); };
+    const leute = gd.leute || [], pl = [[-.6, 1.4], [1.4, 1.6], [3.2, 2.4], [-2.4, 2.2], [5.0, 3.6], [-5.6, 3.0], [0.6, 3.6]];
+    g.userData.leuteP = []; leute.forEach((l, i) => { const P = pl[i % pl.length]; arbeiter(P[0], P[1], Math.PI + (i % 2 ? -.4 : .4), [0x5a6a3a, 0x6a4a2a, 0x3a4a5a, 0x7a5a3a][i % 4]); g.userData.leuteP.push({ h: l.h, rolle: l.rolle, p: new THREE.Vector3(P[0], 2.6, P[1]) }); });
+    if (!gd.gross) g.scale.setScalar(.85);
+    gd._g = g; return g; },
   spital(gd) {   // 20.10.: Upgrade Part 6 (most ♥: @m.spurnik „Hospital. I'm a doctor IRL, we could use one“) — Dorf 1 Hospital (Fachwerk-Haupthaus + Flügel, Kräutergarten, Bänke, Trage), Dorf 2–4 Heilerhütte (Kräutergestell, Mörsertisch); Heiler mit Selbstbezug davor
     const g = new THREE.Group(), holz = mat("holz"), hd = mat("holzDunkel"), gruen = mat(0x4a7a3a), gruen2 = mat(0x6a8a3a), weiss = mat(0xe8e2d4);
     const schild = (x, y, z) => { const t = new THREE.Group(); t.add(box(.08, 1.6, .08, mat("stamm"), 0, .8, 0)); t.add(box(1.0, .7, .08, mat(0xe8e0c8), 0, 1.75, .02));
@@ -1390,7 +1425,8 @@ const TX = { wunsch_titel: "Today's wish", wunsch_von: "wish by", naechster: "",
   ...(DATEN.texte || {}) };
 const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
 const fuell = (t, o) => t.replace(/\{(\w+)\}/g, (_, k) => o[k] ?? "");
-document.getElementById("kopfzahl").textContent = `Day ${DATEN.tag} · ${DATEN.einwohner.toLocaleString("en-US")} ${DATEN.einwohner === 1 ? "soul" : "souls"}`;
+{ const SOULS = (DATEN.souls_profil && DATEN.souls_profil.zahl) || DATEN.einwohner;   // 20.10. (Anthony „A“): souls = Followerzahl des Profils (letzter Abgleich), Häuser bleiben alle
+  document.getElementById("kopfzahl").textContent = `Day ${DATEN.tag} · ${SOULS.toLocaleString("en-US")} ${SOULS === 1 ? "soul" : "souls"}`; }
 { const k = document.getElementById("kopf"), pf = document.getElementById("pfeil");   // KARTE-KOMPAKT: Tippen klappt auf/zu
   if (k && pf) k.addEventListener("click", e => { if (e.target.closest("button")) return; const zu = k.classList.toggle("zu"); pf.textContent = zu ? "▾" : "▴"; }); }
 const RENNEN = DATEN.wunsch_rennen && (DATEN.wunsch_rennen.top || []).length ? DATEN.wunsch_rennen : null;   // nur umgedeutete Texte (wachstum.py)
@@ -1625,7 +1661,7 @@ const LEBEN = { rehe: [], hasen: [], voegel: [], laeufer: [], wurzeln: [] };
 for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
   const C = gd.c, PR = gd.r, N = gd.n, PP = [], SEILE = new THREE.Group(); scene.add(SEILE);
   const RAD = gd.radien ? (deg => { const d = ((deg % 360) + 360) % 360, k = Math.floor(d), f = d - k; return gd.radien[k % 360] * (1 - f) + gd.radien[(k + 1) % 360] * f; }) : () => PR;   // 18.10. abends: Radius je Winkel (aeussere Palisade um ganz Dorf 1)
-  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5, spital: 7.5 };
+  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5, spital: 7.5, holzhof: 7.5 };
   const ARC = [];   // 18.10. abends: Pfaehle nach Bogenlaenge verteilen (bei Radius je Winkel sonst Loecher an Ausbuchtungen)
   if (gd.radien) { let L = 0, q = null; for (let k = 0; k <= 4000; k++) { const deg = gd.von_grad + (gd.bis_grad - gd.von_grad) * k / 4000, a = deg * Math.PI / 180, p = { u: C.u + Math.cos(a) * RAD(deg) * (gd.su || 1), w: C.w + Math.sin(a) * RAD(deg) * (gd.sw || 1), deg };
       if (q) L += Math.hypot(p.u - q.u, p.w - q.w); p.L = L; ARC.push(p); q = p; } }
@@ -2089,7 +2125,7 @@ if (CFG.tiere) { const RT = rng(90210), rr2 = (a, b) => a + RT() * (b - a), M4 =
     else if (x < .9) hasen.push([u, w, RT() * 6.283, 1]); else fuechse.push([u, w, RT() * 6.283, 1]); }
   art("rehe", () => reh(false), rehe, true); art("hasen", hase, hasen); art("fuechse", fuchs, fuechse, true);
   window.__tiere = () => TIERE.n; }
-const GEB_R = { zauberturm: 9, weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5, spital: 7.5 };
+const GEB_R = { zauberturm: 9, weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5, spital: 7.5, holzhof: 7.5 };
 window.__inventar = () => {  window.__pferde = W_GEB.filter(g => g.typ === "stall_klein").reduce((a, g) => a + (g.pferde || 2), 0) + RITT.n;
  let pf = 0; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "CylinderGeometry") pf++; });
   return { fluss: FLUSS.mesh ? FLUSS.y.length : 0, baeume: window.__waldbaeume || 0, baum_teile: window.__baeume || 0, huetten: LAGE.length,
@@ -2385,7 +2421,7 @@ if (FIG.katze) { neuSchild({ u: 0, w: 0, dach: new THREE.Vector3(), groesse: 3, 
   for (const gd of W_GEB) { if (!gd._g) continue; gd._g.updateMatrixWorld(true);   // 19.10. Tag 4 P1: Fischerhuetten, Oberfischer, Jaegerhuetten, Hexe
     if (gd.typ === "fischerhuette") { Z(gd.u, gd.w, hoehe(gd.u, gd.w) + 4.6, `<span class="klein">${esc(gd.schild || "Fishing hut")}</span>`, "arbeit", 6, [], PRIO.arbeit);
       if (gd.ober && gd._g.userData.oberP) { const q = gd._g.localToWorld(gd._g.userData.oberP.clone()); Z(q.x, -q.z, q.y, hd(gd.ober, "Head fisherman"), null, 6, [gd.ober]); } }
-    if (gd.typ === "kaserne" || gd.typ === "kirche" || gd.typ === "spital") {   // Bau-Schild kommt schon aus „wish by“
+    if (gd.typ === "kaserne" || gd.typ === "kirche" || gd.typ === "spital" || gd.typ === "holzhof") {   // Bau-Schild kommt schon aus „wish by“
       for (const q of (gd._g && gd._g.userData.leuteP) || []) { const w3 = gd._g.localToWorld(q.p.clone()); Z(w3.x, -w3.z, w3.y, hd(q.h, q.rolle), null, 6, [q.h]); } }
     if (gd.typ === "fischerei") { Z(gd.u, gd.w, hoehe(gd.u, gd.w) + 5.6, `<span>${esc(gd.schild || "Fishery")}</span>`, "arbeit", 7, [], PRIO.arbeit + 3);
       if (gd.meister && gd._g.userData.meisterP) { const q = gd._g.localToWorld(gd._g.userData.meisterP.clone()); Z(q.x, -q.z, q.y, hd(gd.meister, "Fishery master"), null, 6, [gd.meister]); } }
