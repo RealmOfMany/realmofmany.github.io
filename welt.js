@@ -2178,7 +2178,8 @@ function alltagBauen() {
     const stunde = Math.floor(s / 3600);
     if (stunde !== wahlStunde) { wahlStunde = stunde;   // mehr als 12 Bewohner: stuendlich wechselnd, damit jeder mal draussen ist
       const mitBeruf = leute.filter(p => W_BERUFE[p.h]), rest = leute.filter(p => !W_BERUFE[p.h]);   // 18.10.: Berufe (Schmied, Farmer, Holzfaeller) immer draussen
-      wahl = leute.length <= MAX ? leute.slice() : [...mitBeruf.slice(0, MAX), ...rest.sort((a, b) => hash(a.h + stunde) - hash(b.h + stunde))].slice(0, MAX);
+      const wa = mitBeruf.filter(p => WACHEN.includes(p.h)), ub = mitBeruf.filter(p => !WACHEN.includes(p.h)).sort((a, b) => hash(a.h + stunde) - hash(b.h + stunde));   // 20.10.: Wachen immer draussen (alle Doerfer), uebrige Berufe stuendlich wechselnd
+      wahl = leute.length <= MAX ? leute.slice() : [...wa, ...ub, ...rest.sort((a, b) => hash(a.h + stunde) - hash(b.h + stunde))].slice(0, MAX);
       wahl.forEach((p, i) => { p.sitz = i; slots[i].p = p; IM.rumpf.setColorAt(i, cl.setHex(p.tuch)); IM.arm.setColorAt(2 * i, cl); IM.arm.setColorAt(2 * i + 1, cl); IM.hut.setColorAt(i, cl.setHex(p.kopf)); });
       for (let i = wahl.length; i < MAX; i++) slots[i].p = null;
       for (const im of [IM.rumpf, IM.arm, IM.hut]) im.instanceColor.needsUpdate = true; }
