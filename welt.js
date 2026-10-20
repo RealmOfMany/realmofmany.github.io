@@ -745,7 +745,7 @@ const bergArbeiter = (g, x, z, ry, tuch, hacke = true) => { const m = new THREE.
   const arm = box(.13, .62, .14, t, .31, 1.3, .15); arm.rotation.x = -1.6; m.add(arm); m.add(box(.13, .62, .14, t, -.31, 1.1, 0));
   if (hacke) { const st = box(.05, 1.1, .05, mat("stamm"), .31, 1.65, .7); st.rotation.x = -.5; m.add(st); const kp = box(.5, .08, .08, mat(0x777777), .31, 2.1, .95); m.add(kp); }
   m.position.set(x, 0, z); m.rotation.y = ry; m.scale.setScalar(1.1); g.add(m); };
-const UEBEN = [];   // 20.10.: Soldaten an der Strohpuppe (Schwertschlag), bewegt -> nicht ins statische Zusammenfassen
+const UEBEN = []; window.__ueben = () => UEBEN.map(u => +u.sch.rotation.x.toFixed(2));   // 20.10.: Soldaten an der Strohpuppe (Schwertschlag), bewegt -> nicht ins statische Zusammenfassen
 const BAUTEN = {
   holzfaellerhuette() {
     const g = new THREE.Group(), l = 4.6, b = 3.6, h = 2.1, st = { fundament: [], waende: [], dach: [], rest: [] };
@@ -1063,11 +1063,13 @@ const BAUTEN = {
     const leute = gd.leute || [], plaetze = [[-4.2, 3.0, Math.PI], [-2.4, 3.0, Math.PI], [4.0, 2.2, Math.PI * .8], [-0.6, 4.4, Math.PI], [1.4, 4.4, Math.PI], [-3.2, 5.2, Math.PI], [3.0, 5.4, Math.PI * .9], [0.4, 2.6, Math.PI]];
     g.userData.leuteP = []; let k = 0;
     const sortiert = [...leute].sort((a, b) => (/commander|leader|master/i.test(b.rolle) ? 1 : 0) - (/commander|leader|master/i.test(a.rolle) ? 1 : 0));
-    for (const l of sortiert) { const cmd = /commander|leader|master/i.test(l.rolle), P = cmd ? [0, .4, 0] : plaetze[k++ % plaetze.length];
-      if (cmd && g.userData.leuteP.some(q => q.cmd)) { const Q = plaetze[k++ % plaetze.length]; P[0] = Q[0]; P[1] = Q[1]; }
-      soldat(P[0], P[1], cmd ? 0 : P[2], cmd ? 0x3a3a5a : [0x6a2a2a, 0x2a3a5a, 0x4a4a2a][k % 3], cmd);
+    for (const l of sortiert) { let cmd = /commander|leader|master/i.test(l.rolle), P = [0, .4, 0], ki = -1;
+      if (!cmd || g.userData.leuteP.some(q => q.cmd && q.mitte)) { ki = k++ % plaetze.length; P = plaetze[ki]; }
+      const mitte = ki < 0, ueb = ki >= 0 && ki < 3;   // an den 3 Strohpuppen wird geuebt (Schwertschlag), nur der Kommandant in der Mitte nicht
+      soldat(P[0], P[1], mitte ? 0 : P[2], mitte ? 0x3a3a5a : [0x6a2a2a, 0x2a3a5a, 0x4a4a2a][(ki + 3) % 3], mitte, ueb);
+      g.userData.leuteP.push({ h: l.h, rolle: l.rolle, cmd, mitte, p: new THREE.Vector3(P[0], 2.6, P[1]) }); continue;
       g.userData.leuteP.push({ h: l.h, rolle: l.rolle, cmd, p: new THREE.Vector3(P[0], 2.6, P[1]) }); }
-    if (!leute.length) { soldat(-4.2, 3.0, Math.PI, 0x6a2a2a); soldat(-2.4, 3.0, Math.PI, 0x2a3a5a); }
+    if (!leute.length) { soldat(-4.2, 3.0, Math.PI, 0x6a2a2a, false, true); soldat(-2.4, 3.0, Math.PI, 0x2a3a5a, false, true); }
     gd._g = g; return g; },
   holzturm(gd) {   // 18.10. abends: Holz-Wachturm (Turmplatz), oben steht die Turmwache
     const g = TYPEN.wachturm({ holz: true }), H = 6;
@@ -2267,7 +2269,7 @@ function niederschlag() {
 { let ab = null; renderer.domElement.addEventListener("pointerdown", e => { ab = [e.clientX, e.clientY, performance.now()]; });
   renderer.domElement.addEventListener("pointerup", e => { if (ab && Math.hypot(e.clientX - ab[0], e.clientY - ab[1]) < 8 && performance.now() - ab[2] < 450) ALLTAG.tippen(e.clientX, e.clientY); ab = null; }); }
 // ---- Statisches zusammenfassen (wenige Draw-Calls fuers Handy): alle Meshes in Gruppen ausser Feuer/Figur/Wolken
-{ const bewegt = new Set(); for (const f of c.FEUER) bewegt.add(f.pl.parent); for (const m of c.MENSCHEN) bewegt.add(m); for (const w of c.WOLKEN) bewegt.add(w.g); for (const g of LEBEN.wurzeln) bewegt.add(g); for (const v of LEBEN.voegel) bewegt.add(v.g);
+{ const bewegt = new Set(); for (const f of c.FEUER) bewegt.add(f.pl.parent); for (const m of c.MENSCHEN) bewegt.add(m); for (const w of c.WOLKEN) bewegt.add(w.g); for (const g of LEBEN.wurzeln) bewegt.add(g); for (const u of UEBEN) bewegt.add(u.m); for (const v of LEBEN.voegel) bewegt.add(v.g);
   const topf = new Map(), weg = new Set(); c.scene.updateMatrixWorld(true);
   const unsichtbar = new Set();
   c.scene.traverse(o => { if (!o.isMesh || o.isInstancedMesh || o.parent === c.scene) return;
@@ -2468,6 +2470,7 @@ function figurenLeben(t) {
   if (K_.schild) { K_.schild.l.dach.set(g.position.x, g.position.y + 1.6, g.position.z); K_.schild.l.u = g.position.x; K_.schild.l.w = -g.position.z; } }
 function leben(t) {   // Tiere + laufende Bewohner (wie im Reel), leichtgewichtig
   figurenLeben(t);
+  for (const u of UEBEN) { const z = (t * 1.6 + u.ph) % 2, hieb = z < .35 ? z / .35 : z < .6 ? 1 - (z - .35) / .25 : 0; u.sch.rotation.x = -2.4 + 2.0 * hieb; }   // ausholen -> Schlag nach vorn
   for (const r of LEBEN.rehe) { const z = t + r.ph; r.g.userData.hals.rotation.z = -.6 * Math.max(0, Math.sin(z * .9)) ** 2; r.g.position.x = r.u + .25 * Math.sin(z * .23); }
   for (const h of LEBEN.hasen) { const z = t * 1.3 + h.ph, k = Math.floor(z), f = z - k, sprung = f < .35 ? Math.sin(f / .35 * Math.PI) : 0, q = Math.min(1, f / .35);
     const hin = (k % 8) < 4, s = .45 * (hin ? (k % 4) + q : 4 - (k % 4) - q), u = h.u + Math.cos(h.dir) * s, w = h.w + Math.sin(h.dir) * s;
