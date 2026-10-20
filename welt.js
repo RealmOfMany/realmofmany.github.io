@@ -1001,6 +1001,40 @@ const BAUTEN = {
       const angel = box(.04, 3.4, .04, mat("stamm"), .3, 2.1, .9); angel.rotation.x = .75; m.add(angel); m.add(box(.01, 2.4, .01, mat(0xe8e4d8), .3, 1.1, 2.1));
       m.scale.setScalar(1.1); m.position.set(1.8, .6, 1.2 + stegL - .6); g.add(m); g.userData.meisterP = new THREE.Vector3(1.8, 3.0, 1.2 + stegL - .6); }
     gd._g = g; return g; },
+  kaserne(gd) {   // 20.10.: Upgrade Part 4 (most ♥: @olrdyesmaj „A barracks for soldiers to train“, 41♥) — Langhaus aus Stein + Holz, Übungsplatz mit Zaun, Strohpuppen, Waffenständer, Zielscheibe, Banner; Soldaten mit Selbstbezug im Hof
+    const g = new THREE.Group(), holz = mat("holz"), hd = mat("holzDunkel"), stroh = mat("stroh"), eisen = mat(0x8a8a8a), rot = mat(0x8a2a2a);
+    const h = haus({ l: 11, b: 5, h: 2.6, wand: "stein", dach: "schindel", kamin: true }); h.position.set(0, 0, -4.2); g.add(h);
+    g.add(box(1.4, 2.0, .12, hd, 0, 1.35, -1.62)); for (const x of [-3.5, 3.5]) g.add(box(.9, .7, .1, mat(0x2a2420), x, 1.9, -1.62));   // Tor + Fenster
+    const ban = new THREE.Group(); ban.add(box(.12, 5.2, .12, mat("stamm"), 0, 2.6, 0)); const tuch = box(1.1, 1.5, .04, rot, .6, 4.4, 0); ban.add(tuch); ban.add(box(.5, .5, .05, mat(0xd8b040), .6, 4.4, .03)); ban.position.set(-6.2, 0, -1.2); g.add(ban);
+    for (let i = 0; i < 14; i++) { const x = -6.5 + i, z = 6.6; g.add(box(.1, .9, .1, mat("stamm"), x, .45, z)); }   // Zaun vorn (Mitte offen)
+    g.add(box(5.6, .08, .08, holz, -3.7, .75, 6.6)); g.add(box(5.6, .08, .08, holz, 3.7, .75, 6.6));
+    for (const x of [-6.6, 6.6]) { for (let i = 0; i < 8; i++) g.add(box(.1, .9, .1, mat("stamm"), x, .45, -1.2 + i)); g.add(box(.08, .08, 8, holz, x, .75, 2.3)); }
+    g.add(box(12.6, .04, 7.6, mat(0x8a7656), 0, .03, 2.7));   // gestampfter Übungsplatz
+    for (const [x, z] of [[-4.2, 1.6], [-2.4, 1.6], [4.6, 1.0]]) { const p = new THREE.Group(); p.add(box(.12, 1.7, .12, mat("stamm"), 0, .85, 0)); const k = mesh(new THREE.CylinderGeometry(.3, .26, .9, 7), stroh); k.position.y = 1.35; p.add(k);
+      const kp = mesh(new THREE.IcosahedronGeometry(.2, 0), stroh); kp.position.y = 1.98; p.add(kp); p.add(box(.9, .1, .1, holz, 0, 1.5, 0)); p.position.set(x, 0, z); g.add(p); }
+    const rack = new THREE.Group(); rack.add(box(2.2, .1, .3, holz, 0, 1.4, 0)); rack.add(box(2.2, .1, .3, holz, 0, .4, 0)); for (const x of [-1, 1]) rack.add(box(.1, 1.6, .1, mat("stamm"), x, .8, 0));
+    for (let i = 0; i < 6; i++) { const sp = box(.04, 2.0, .04, mat("stamm"), -.8 + i * .32, 1.0, .05); sp.rotation.z = .08; rack.add(sp); rack.add(box(.07, .22, .03, eisen, -.8 + i * .32 + .08, 2.05, .05)); }
+    rack.position.set(5.4, 0, -1.0); rack.rotation.y = -Math.PI / 2; g.add(rack);
+    const ziel = new THREE.Group(); const sch = mesh(new THREE.CylinderGeometry(.6, .6, .15, 14), stroh); sch.rotation.x = Math.PI / 2; sch.position.y = 1.2; ziel.add(sch);
+    const ring = mesh(new THREE.CylinderGeometry(.3, .3, .16, 14), rot); ring.rotation.x = Math.PI / 2; ring.position.y = 1.2; ziel.add(ring); for (const x of [-.35, .35]) { const b = box(.08, 1.4, .08, mat("stamm"), x, .6, -.2); b.rotation.x = -.25; ziel.add(b); }
+    ziel.position.set(4.6, 0, 4.6); ziel.rotation.y = -.5; g.add(ziel);
+    for (const [x, z] of [[2.0, -1.2], [2.6, -1.1]]) { const f = mesh(new THREE.CylinderGeometry(.3, .3, .7, 9), hd); f.position.set(x, .35, z); g.add(f); }
+    const soldat = (x, z, ry, farbe, cmd) => { const m = new THREE.Group(), t = mat(farbe);
+      for (const dx of [-.11, .11]) m.add(box(.16, .75, .18, mat(0x3a3028), dx, .38, 0)); m.add(box(.48, .72, .32, t, 0, 1.1, 0)); m.add(box(.5, .1, .34, mat(0x5a4030), 0, .8, 0));
+      const kopf = mesh(new THREE.IcosahedronGeometry(.19, 0), mat(PAL.haut)); kopf.position.y = 1.62; m.add(kopf); const helm = mesh(new THREE.SphereGeometry(.22, 8, 5, 0, 6.283, 0, 1.5), eisen); helm.position.y = 1.7; m.add(helm);
+      const arm = box(.13, .62, .14, t, .31, 1.3, .15); arm.rotation.x = -1.2; m.add(arm); m.add(box(.13, .62, .14, t, -.31, 1.1, 0));
+      if (cmd) { const um = box(.56, .9, .06, rot, 0, 1.05, -.2); m.add(um); const sw = box(.05, .9, .05, eisen, .31, 1.75, .55); sw.rotation.x = -.9; m.add(sw); }
+      else { const sp = box(.05, 2.2, .05, mat("stamm"), .31, 1.4, .45); sp.rotation.x = -.35; m.add(sp); m.add(box(.06, .25, .06, eisen, .31, 2.45, .85)); m.add(box(.08, .55, .45, hd, -.4, 1.1, .1)); }
+      m.position.set(x, 0, z); m.rotation.y = ry; m.scale.setScalar(1.1); g.add(m); return m; };
+    const leute = gd.leute || [], plaetze = [[-4.2, 3.0, Math.PI], [-2.4, 3.0, Math.PI], [4.0, 2.2, Math.PI * .8], [-0.6, 4.4, Math.PI], [1.4, 4.4, Math.PI], [-3.2, 5.2, Math.PI], [3.0, 5.4, Math.PI * .9], [0.4, 2.6, Math.PI]];
+    g.userData.leuteP = []; let k = 0;
+    const sortiert = [...leute].sort((a, b) => (/commander|leader|master/i.test(b.rolle) ? 1 : 0) - (/commander|leader|master/i.test(a.rolle) ? 1 : 0));
+    for (const l of sortiert) { const cmd = /commander|leader|master/i.test(l.rolle), P = cmd ? [0, .4, 0] : plaetze[k++ % plaetze.length];
+      if (cmd && g.userData.leuteP.some(q => q.cmd)) { const Q = plaetze[k++ % plaetze.length]; P[0] = Q[0]; P[1] = Q[1]; }
+      soldat(P[0], P[1], cmd ? 0 : P[2], cmd ? 0x3a3a5a : [0x6a2a2a, 0x2a3a5a, 0x4a4a2a][k % 3], cmd);
+      g.userData.leuteP.push({ h: l.h, rolle: l.rolle, cmd, p: new THREE.Vector3(P[0], 2.6, P[1]) }); }
+    if (!leute.length) { soldat(-4.2, 3.0, Math.PI, 0x6a2a2a); soldat(-2.4, 3.0, Math.PI, 0x2a3a5a); }
+    gd._g = g; return g; },
   holzturm(gd) {   // 18.10. abends: Holz-Wachturm (Turmplatz), oben steht die Turmwache
     const g = TYPEN.wachturm({ holz: true }), H = 6;
     if (gd.wache) { const m = new THREE.Group(), y0 = 1 + H + .11, tuch = mat([0x5b4a3a, 0x3f5a6a, 0x6a3f3a, 0x4a5a32][(gd.wache.length) % 4]);   // eigene kleine Figur (mensch() wird vom Alltag gesteuert)
@@ -1521,7 +1555,7 @@ const LEBEN = { rehe: [], hasen: [], voegel: [], laeufer: [], wurzeln: [] };
 for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
   const C = gd.c, PR = gd.r, N = gd.n, PP = [], SEILE = new THREE.Group(); scene.add(SEILE);
   const RAD = gd.radien ? (deg => { const d = ((deg % 360) + 360) % 360, k = Math.floor(d), f = d - k; return gd.radien[k % 360] * (1 - f) + gd.radien[(k + 1) % 360] * f; }) : () => PR;   // 18.10. abends: Radius je Winkel (aeussere Palisade um ganz Dorf 1)
-  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5 };
+  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5 };
   const ARC = [];   // 18.10. abends: Pfaehle nach Bogenlaenge verteilen (bei Radius je Winkel sonst Loecher an Ausbuchtungen)
   if (gd.radien) { let L = 0, q = null; for (let k = 0; k <= 4000; k++) { const deg = gd.von_grad + (gd.bis_grad - gd.von_grad) * k / 4000, a = deg * Math.PI / 180, p = { u: C.u + Math.cos(a) * RAD(deg) * (gd.su || 1), w: C.w + Math.sin(a) * RAD(deg) * (gd.sw || 1), deg };
       if (q) L += Math.hypot(p.u - q.u, p.w - q.w); p.L = L; ARC.push(p); q = p; } }
@@ -1985,7 +2019,7 @@ if (CFG.tiere) { const RT = rng(90210), rr2 = (a, b) => a + RT() * (b - a), M4 =
     else if (x < .9) hasen.push([u, w, RT() * 6.283, 1]); else fuechse.push([u, w, RT() * 6.283, 1]); }
   art("rehe", () => reh(false), rehe, true); art("hasen", hase, hasen); art("fuechse", fuchs, fuechse, true);
   window.__tiere = () => TIERE.n; }
-const GEB_R = { zauberturm: 9, weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5 };
+const GEB_R = { zauberturm: 9, weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5 };
 window.__inventar = () => {  window.__pferde = W_GEB.filter(g => g.typ === "stall_klein").reduce((a, g) => a + (g.pferde || 2), 0) + RITT.n;
  let pf = 0; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "CylinderGeometry") pf++; });
   return { fluss: FLUSS.mesh ? FLUSS.y.length : 0, baeume: window.__waldbaeume || 0, baum_teile: window.__baeume || 0, huetten: LAGE.length,
@@ -2051,7 +2085,7 @@ fertig(c);
 function alltagBauen() {
   const MAX = 72, hash = s => { let h = 2166136261; for (const ch of s) h = Math.imul(h ^ ch.charCodeAt(0), 16777619); return h >>> 0; };
   const HALLE = LAGE.find(l => l.typ === "langhaus"), NEU = new Set(DATEN.neu || []);
-  const ROLLE = new Set([...W_GEB.filter(g => g.ober || g.hexe || g.meister).map(g => g.ober || g.hexe || g.meister), ...(DATEN.figuren || []).filter(f => f.typ === "katze" || ["paar", "hauptmann", "falkner", "hirte", "mueller", "turmwaechter", "gelehrter"].includes(f.typ)).map(f => f.handle), ...W_GEB.filter(g => g.typ === "holzturm" && g.wache).map(g => g.wache)]);   // als Katze unterwegs, nicht zusaetzlich als Mensch
+  const ROLLE = new Set([...W_GEB.flatMap(g => (g.leute || []).map(l => l.h)), ...W_GEB.filter(g => g.ober || g.hexe || g.meister).map(g => g.ober || g.hexe || g.meister), ...(DATEN.figuren || []).filter(f => f.typ === "katze" || ["paar", "hauptmann", "falkner", "hirte", "mueller", "turmwaechter", "gelehrter"].includes(f.typ)).map(f => f.handle), ...W_GEB.filter(g => g.typ === "holzturm" && g.wache).map(g => g.wache)]);   // als Katze unterwegs, nicht zusaetzlich als Mensch
   const leute = LAGE.filter(l => l.bewohner.length).flatMap(l => l.bewohner.filter(h => !ROLLE.has(h)).map(h => ({ h, haus: l, z: hash(h) })));
   const seite = p => Math.sign(p.w - flussW(p.u)) || 1, FU = 4.5, FURT = s => ({ u: FU, w: flussW(FU) + s * 3.1 });
   const weg = (a, b) => { const pts = seite(a) === seite(b) ? [a, b] : [a, FURT(seite(a)), FURT(seite(b)), b]; let L = 0; for (let i = 1; i < pts.length; i++) L += Math.hypot(pts[i].u - pts[i - 1].u, pts[i].w - pts[i - 1].w); return { pts, L }; };
@@ -2280,6 +2314,8 @@ if (FIG.katze) { neuSchild({ u: 0, w: 0, dach: new THREE.Vector3(), groesse: 3, 
   for (const gd of W_GEB) { if (!gd._g) continue; gd._g.updateMatrixWorld(true);   // 19.10. Tag 4 P1: Fischerhuetten, Oberfischer, Jaegerhuetten, Hexe
     if (gd.typ === "fischerhuette") { Z(gd.u, gd.w, hoehe(gd.u, gd.w) + 4.6, `<span class="klein">${esc(gd.schild || "Fishing hut")}</span>`, "arbeit", 6, [], PRIO.arbeit);
       if (gd.ober && gd._g.userData.oberP) { const q = gd._g.localToWorld(gd._g.userData.oberP.clone()); Z(q.x, -q.z, q.y, hd(gd.ober, "Head fisherman"), null, 6, [gd.ober]); } }
+    if (gd.typ === "kaserne") {   // Bau-Schild kommt schon aus „wish by“
+      for (const q of (gd._g && gd._g.userData.leuteP) || []) { const w3 = gd._g.localToWorld(q.p.clone()); Z(w3.x, -w3.z, w3.y, hd(q.h, q.rolle), null, 6, [q.h]); } }
     if (gd.typ === "fischerei") { Z(gd.u, gd.w, hoehe(gd.u, gd.w) + 5.6, `<span>${esc(gd.schild || "Fishery")}</span>`, "arbeit", 7, [], PRIO.arbeit + 3);
       if (gd.meister && gd._g.userData.meisterP) { const q = gd._g.localToWorld(gd._g.userData.meisterP.clone()); Z(q.x, -q.z, q.y, hd(gd.meister, "Fishery master"), null, 6, [gd.meister]); } }
     if (gd.typ === "hexenhuette") { const q = gd._g.localToWorld(gd._g.userData.hexeP.clone()); Z(q.x, -q.z, q.y, hd(gd.hexe, "Witch of the outskirts"), null, 6, [gd.hexe]);
