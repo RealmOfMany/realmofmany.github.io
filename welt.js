@@ -1006,9 +1006,14 @@ const BAUTEN = {
     const g = new THREE.Group(), stein = mat(0xb8b0a0), stein2 = mat(0x9a9284), dach = mat(0x5a4a44), holz = mat("holzDunkel"), gold = mat(0xd8b040), glas = mat(0x3a5a8a);
     const L = 11, Bb = 6, H = 5.2;
     g.add(box(L + .4, .5, Bb + .4, stein2, 0, .25, -2)); g.add(box(L, H, Bb, stein, 0, .5 + H / 2, -2));
-    const d = new THREE.Mesh(new THREE.CylinderGeometry(.01, Bb * .62, 3.6, 4, 1), dach); d.rotation.y = Math.PI / 4; d.scale.set(1, 1, L / (Bb * .88)); d.rotation.set(0, 0, 0);
-    const roof = new THREE.Group(); for (const sx of [-1, 1]) { const pl = box(Bb * .62, .18, L + .6, dach, sx * Bb * .26, 0, 0); pl.rotation.z = -sx * .85; roof.add(pl); } roof.position.set(0, .5 + H + 1.15, -2); roof.rotation.y = Math.PI / 2; g.add(roof);
-    for (const sx of [-1, 1]) { const gi = box(.2, 2.4, Bb * .9, stein, sx * L / 2, .5 + H + 1.0, -2); g.add(gi); }
+    // 20.10. (Sichtprüfung): geschlossenes Satteldach — zwei Dachplatten mit Überstand, steinerne Giebeldreiecke bündig darunter, klare Firstlinie
+    const y0 = .5 + H, rise = Bb * .55, a = Math.atan2(rise, Bb / 2), sl = Math.hypot(Bb / 2, rise) + .55;
+    for (const sz of [-1, 1]) { const pl = box(L + .7, .22, sl, dach, 0, 0, 0); pl.rotation.x = sz * a;
+      pl.position.set(0, y0 + rise / 2 - .05, -2 + sz * (Bb / 4 + .12)); g.add(pl); }
+    g.add(box(L + .8, .2, .3, mat(0x4a3a34), 0, y0 + rise + .08, -2));   // First
+    const gs = new THREE.Shape(); gs.moveTo(-Bb / 2, 0); gs.lineTo(Bb / 2, 0); gs.lineTo(0, rise); gs.lineTo(-Bb / 2, 0);
+    const gg = new THREE.ExtrudeGeometry(gs, { depth: .3, bevelEnabled: false });
+    for (const sx of [-1, 1]) { const gm = mesh(gg, stein); gm.rotation.y = Math.PI / 2; gm.position.set(sx * (L / 2) - (sx > 0 ? .3 : 0), y0, -2); g.add(gm); }
     for (let i = 0; i < 4; i++) for (const sz of [-1, 1]) { const f = box(.7, 1.8, .1, glas, -3.6 + i * 2.4, 3.2, -2 + sz * (Bb / 2 + .02)); g.add(f); g.add(box(.9, .2, .14, stein2, -3.6 + i * 2.4, 4.2, -2 + sz * (Bb / 2 + .03))); }
     for (let i = 0; i < 4; i++) for (const sz of [-1, 1]) g.add(box(.5, H * .8, .6, stein2, -4.8 + i * 3.2, .5 + H * .4, -2 + sz * (Bb / 2 + .25)));   // Strebepfeiler
     // Turm vorn (+z Seite = Portal), Turmhelm, Kreuz, Glocke
