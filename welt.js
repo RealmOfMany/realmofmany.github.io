@@ -2340,7 +2340,7 @@ function niederschlag() {
   renderer.domElement.addEventListener("pointerup", e => { if (ab && Math.hypot(e.clientX - ab[0], e.clientY - ab[1]) < 8 && performance.now() - ab[2] < 450) ALLTAG.tippen(e.clientX, e.clientY); ab = null; }); }
 // ---- Statisches zusammenfassen (wenige Draw-Calls fuers Handy): alle Meshes in Gruppen ausser Feuer/Figur/Wolken
 { const bewegt = new Set(); for (const f of c.FEUER) bewegt.add(f.pl.parent); for (const m of c.MENSCHEN) bewegt.add(m); for (const w of c.WOLKEN) bewegt.add(w.g); for (const g of LEBEN.wurzeln) bewegt.add(g); for (const u of UEBEN) bewegt.add(u.m); for (const v of LEBEN.voegel) bewegt.add(v.g);
-  const topf = new Map(), weg = new Set(); c.scene.updateMatrixWorld(true);
+  const topf = new Map(), weg = new Set(); c.scene.updateMatrixWorld(true); for (const u of UEBEN) { u.m.updateWorldMatrix(true, false); c.scene.attach(u.m); }   // 20.10. Fix (aus Reel-Kopie): uebende Soldaten vor dem Zusammenfassen in die Szene haengen, sonst gehen sie mit der Kaserne weg
   const unsichtbar = new Set();
   c.scene.traverse(o => { if (!o.isMesh || o.isInstancedMesh || o.parent === c.scene) return;
     let p = o, sicht = o.visible; while (p.parent && p.parent !== c.scene) { if (bewegt.has(p)) return; p = p.parent; sicht = sicht && p.visible; } if (bewegt.has(p)) return;
@@ -2540,7 +2540,7 @@ function figurenLeben(t) {
   if (K_.schild) { K_.schild.l.dach.set(g.position.x, g.position.y + 1.6, g.position.z); K_.schild.l.u = g.position.x; K_.schild.l.w = -g.position.z; } }
 function leben(t) {   // Tiere + laufende Bewohner (wie im Reel), leichtgewichtig
   figurenLeben(t);
-  for (const u of UEBEN) { const z = (t * 1.6 + u.ph) % 2, hieb = z < .35 ? z / .35 : z < .6 ? 1 - (z - .35) / .25 : 0; u.sch.rotation.x = -2.4 + 2.0 * hieb; }   // ausholen -> Schlag nach vorn
+  for (const u of UEBEN) { const z = (((t * 1.6 + u.ph) % 2) + 2) % 2, hieb = z < .35 ? z / .35 : z < .6 ? 1 - (z - .35) / .25 : 0; u.sch.rotation.x = -2.4 + 2.0 * hieb; }   // ausholen -> Schlag nach vorn
   for (const r of LEBEN.rehe) { const z = t + r.ph; r.g.userData.hals.rotation.z = -.6 * Math.max(0, Math.sin(z * .9)) ** 2; r.g.position.x = r.u + .25 * Math.sin(z * .23); }
   for (const h of LEBEN.hasen) { const z = t * 1.3 + h.ph, k = Math.floor(z), f = z - k, sprung = f < .35 ? Math.sin(f / .35 * Math.PI) : 0, q = Math.min(1, f / .35);
     const hin = (k % 8) < 4, s = .45 * (hin ? (k % 4) + q : 4 - (k % 4) - q), u = h.u + Math.cos(h.dir) * s, w = h.w + Math.sin(h.dir) * s;
