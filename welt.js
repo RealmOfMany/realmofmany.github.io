@@ -1483,6 +1483,14 @@ const esc = t => String(t ?? "").replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "
 const fuell = (t, o) => t.replace(/\{(\w+)\}/g, (_, k) => o[k] ?? "");
 { const SOULS = (DATEN.souls_profil && DATEN.souls_profil.zahl) || DATEN.einwohner;   // 20.10. (Anthony „A“): souls = Followerzahl des Profils (letzter Abgleich), Häuser bleiben alle
   document.getElementById("kopfzahl").textContent = `Day ${DATEN.tag} · ${SOULS.toLocaleString("en-US")} ${SOULS === 1 ? "soul" : "souls"}`; }
+// 21.10. Wirtschaft v1: Lager des Dorfes, in dem die Kamera gerade ist (Name klein davor)
+const LAGERLEISTE = { el: document.getElementById("lager"), dorf: null, t: 0 };
+function lagerLeiste(ts) { const W = DATEN.wirtschaft; if (!W || !LAGERLEISTE.el || ts - LAGERLEISTE.t < 400) return; LAGERLEISTE.t = ts;
+  const M = { 1: [0, 15], ...Object.fromEntries((DOERFER || []).map(d => [d.nr, [d.u, d.w]])) };
+  const n = Math.hypot(K.u, K.w - 15) < 320 ? 1 : +Object.keys(M).reduce((a, b) => Math.hypot(K.u - M[a][0], K.w - M[a][1]) < Math.hypot(K.u - M[b][0], K.w - M[b][1]) ? a : b);
+  if (n === LAGERLEISTE.dorf) return; LAGERLEISTE.dorf = n; const l = W.lager[String(n)] || {};
+  LAGERLEISTE.el.innerHTML = `<span class="ort">${esc(TX["dorf" + n] || "Village " + n)}</span>` + [["🪵", "holz", "wood"], ["🪨", "stein", "stone"], ["🌾", "nahrung", "food"], ["🌿", "kraeuter", "herbs"]]
+    .map(([i, k, t]) => `<span class="chip" title="${t}">${i} ${Math.floor(l[k] || 0).toLocaleString("en-US")}</span>`).join(""); LAGERLEISTE.el.hidden = false; }
 { const k = document.getElementById("kopf"), pf = document.getElementById("pfeil");   // KARTE-KOMPAKT: Tippen klappt auf/zu
   if (k && pf) k.addEventListener("click", e => { if (e.target.closest("button")) return; const zu = k.classList.toggle("zu"); pf.textContent = zu ? "▾" : "▴"; }); }
 const RENNEN = DATEN.wunsch_rennen && (DATEN.wunsch_rennen.top || []).length ? DATEN.wunsch_rennen : null;   // nur umgedeutete Texte (wachstum.py)
@@ -1669,11 +1677,18 @@ for (const l of LAGE) {
     if (pr.kamin && Math.hypot(l.u, l.w - DORF_MITTE_W) < 45) { const a = new THREE.Object3D(); a.matrixAutoUpdate = false; a.matrix.copy(huetteMatrix(l, rot)); scene.add(a); a.updateMatrixWorld(true); EMITTER.push({ g: a, p: pr.kamin.clone() }); }
     SPERRE.push([l.u, l.w, 4.4]); continue; }
   HAUS_STEIN = !!l.stein; const g = l.art === "geteilt" ? hausFuer(l.typ, l.seed, l.var ?? undefined) : l.typ && l.var !== undefined ? hausFuer(l.typ, l.seed, l.var) : wohnhausFuer(l.seed).haus; HAUS_STEIN = false;
-  if (l.umbau) { const bb0 = new THREE.Box3().setFromObject(g), L0 = bb0.max.x - bb0.min.x, B0 = bb0.max.z - bb0.min.z, st = mat("stamm"), br = mat("holz"), sn = mat("stein"), sd = mat("steinDunkel");   // Geruest an einer Giebelseite + Steinhaufen vor der Halle: „Umbau beginnt“
-    const x0 = bb0.max.x + .5; for (const z of [-B0 / 2 + .3, 0, B0 / 2 - .3]) g.add(box(.14, 4.6, .14, st, x0, 2.3, z)); for (const y of [1.5, 3.0, 4.4]) { g.add(box(.9, .08, B0, br, x0 - .3, y, 0)); g.add(box(.08, .08, B0, st, x0 + .1, y + .7, 0)); }
-    for (let i = 0; i < 2; i++) { const d = box(.08, 3.4, .08, st, x0 + .05, 2.4, 0); d.rotation.x = i ? .7 : -.7; g.add(d); }
-    for (let i = 0; i < 14; i++) g.add(box(.7, .35, .45, i % 3 ? sn : sd, -L0 / 4 + (i % 5) * .75, .18 + Math.floor(i / 5) * .36, B0 / 2 + 2.2 + (i % 2) * .5));
-    const ka = new THREE.Group(); ka.add(box(1.0, .3, .7, mat("holzDunkel"), 0, .45, 0)); ka.add(box(.06, .06, 1.4, br, .3, .45, .8)); ka.add(box(.06, .06, 1.4, br, -.3, .45, .8)); for (let i = 0; i < 3; i++) ka.add(box(.4, .22, .3, sn, -.25 + i * .25, .72, 0)); ka.position.set(L0 / 4 + 1.8, 0, B0 / 2 + 2.6); g.add(ka); }
+  if (l.umbau) {   // 21.10.: Baustelle an der Townhall — Geruest an der Vorderseite (Laenge nach Bau-Fortschritt), Steinhaufen + Karren; Schild haengt am Geruest
+    const bau = ((DATEN.wirtschaft || {}).bau || []).find(b => b.ziel === l.id), k = bau ? bau.kosten : null;
+    const fort = k ? Object.keys(k).reduce((a, r) => a + Math.min(1, (bau.bezahlt[r] || 0) / k[r]), 0) / Object.keys(k).length : .35;
+    const bb0 = new THREE.Box3().setFromObject(g), L0 = bb0.max.x - bb0.min.x, B0 = bb0.max.z - bb0.min.z, st = mat("stamm"), br = mat("holz"), sn = mat("stein"), sd = mat("steinDunkel");
+    const z0 = bb0.max.z + .9, LG = Math.max(.3, fort) * (L0 - .6), xa = bb0.min.x + .3, H = 3.6, n = Math.max(2, Math.round(LG / 1.6));
+    for (let i = 0; i <= n; i++) { const x = xa + i * LG / n; for (const z of [z0, z0 - .8]) g.add(box(.13, H, .13, st, x, H / 2, z)); }   // Staender innen + aussen
+    for (const y of [1.25, 2.5, 3.5]) { g.add(box(LG + .2, .07, .85, br, xa + LG / 2, y, z0 - .4)); g.add(box(LG + .2, .08, .08, st, xa + LG / 2, y + .5, z0)); }   // Bretterlagen + Gelaender
+    for (let i = 0; i < n; i++) { const d = box(.07, Math.hypot(LG / n, H - .3), .07, st, xa + (i + .5) * LG / n, H / 2, z0 + .05); d.rotation.z = (i % 2 ? 1 : -1) * Math.atan2(LG / n, H - .3); g.add(d); }   // Diagonalen
+    const lt = new THREE.Group(); for (const x of [-.22, .22]) lt.add(box(.06, 3.2, .06, br, x, 1.6, 0)); for (let i = 0; i < 6; i++) lt.add(box(.5, .05, .05, br, 0, .3 + i * .5, 0)); lt.position.set(xa + LG + .5, 0, z0 + .4); lt.rotation.x = -.25; g.add(lt);   // Leiter
+    for (let i = 0; i < 14; i++) g.add(box(.7, .35, .45, i % 3 ? sn : sd, bb0.max.x + 1.4 + (i % 2) * .5, .18 + Math.floor(i / 5) * .36, -1.2 + (i % 5) * .6));   // Steinhaufen an der Giebelseite (vor der Halle stehen die Redner)
+    const ka = new THREE.Group(); ka.add(box(1.0, .3, .7, mat("holzDunkel"), 0, .45, 0)); ka.add(box(.06, .06, 1.4, br, .3, .45, .8)); ka.add(box(.06, .06, 1.4, br, -.3, .45, .8)); for (let i = 0; i < 3; i++) ka.add(box(.4, .22, .3, sn, -.25 + i * .25, .72, 0)); ka.position.set(bb0.max.x + 1.8, 0, 2.2); ka.rotation.y = .4; g.add(ka);
+    g.userData.schildP = new THREE.Vector3(xa + LG / 2, H + 1.0, z0 - .4); }
   const rot = l.rot !== undefined ? l.rot : l.typ === "fischerhuette" ? (l.ufer < 0 ? 0 : Math.PI) + rr(-.2, .2) : B + (l.seed % 2) * Math.PI / 2 + ((l.seed >> 3) % 7 - 3) * .04;
   l.lok = new THREE.Box3().setFromObject(g); l.g = g;   // lokale Masse fuer Tuer-Schilder
   setze(g, l.u, l.w, rot, -.05); g.updateMatrixWorld(true);
@@ -2399,6 +2414,21 @@ function niederschlag() {
 // Antippen (kurz, ohne Ziehen) -> Bewohner-Figur zeigen
 { let ab = null; renderer.domElement.addEventListener("pointerdown", e => { ab = [e.clientX, e.clientY, performance.now()]; });
   renderer.domElement.addEventListener("pointerup", e => { if (ab && Math.hypot(e.clientX - ab[0], e.clientY - ab[1]) < 8 && performance.now() - ab[2] < 450) ALLTAG.tippen(e.clientX, e.clientY); ab = null; }); }
+// 21.10. Wirtschaft v1: Lieferkarren (max. 2) auf der Strasse zum Dorf, das Nahrung bekommt
+const KARREN = [];
+for (const k of ((DATEN.wirtschaft || {}).karren || []).slice(0, 2)) { const D = (DOERFER || []).find(d => d.nr === k.nach); if (!D) continue;
+  const lin = (DATEN.strassen || []).map(l => [l, Math.hypot(l[l.length - 1][0] - D.u, l[l.length - 1][1] - D.w)]).sort((a, b) => a[1] - b[1])[0]; if (!lin || lin[1] > 60 || lin[0].length < 2) continue;   // Strasse Dorf 1 -> Dorf N (endet am Dorf)
+  const pts = lin[0].map(p => ({ u: p[0], w: p[1] })), seg = []; let L = 0; for (let i = 1; i < pts.length; i++) { const d = Math.hypot(pts[i].u - pts[i - 1].u, pts[i].w - pts[i - 1].w); seg.push(d); L += d; }
+  const g = new THREE.Group(), hd = mat("holzDunkel"), ho = mat("holz");
+  g.add(box(1.5, .5, 2.4, ho, 0, .95, 0)); g.add(box(1.6, .1, 2.5, hd, 0, .7, 0)); for (const sx of [-1, 1]) { const rd = mesh(new THREE.CylinderGeometry(.55, .55, .12, 12), hd); rd.rotation.z = Math.PI / 2; rd.position.set(sx * .85, .55, -.4); g.add(rd); }
+  const kr = k.fracht && k.fracht.kraeuter > 0;   // Kraeuter-Fracht: gruene Saecke/Buendel
+  for (let i = 0; i < 5; i++) { const sk = mesh(new THREE.CylinderGeometry(.24, .28, .55, 8), mat(kr && i % 2 ? 0x5a8a3a : 0xd8c89a)); sk.position.set(-.4 + (i % 3) * .4, 1.45, -.6 + Math.floor(i / 3) * .6); g.add(sk); }
+  for (const sx of [-.35, .35]) g.add(box(.07, .07, 1.8, hd, sx, .75, 2.0));
+  const pf = new THREE.Group(), fell = mat(0x6a4a2a); pf.add(box(.55, .6, 1.4, fell, 0, 1.1, 0)); for (const [x, z] of [[-.2, -.5], [.2, -.5], [-.2, .5], [.2, .5]]) pf.add(box(.13, .85, .13, fell, x, .42, z)); const hals = box(.3, .7, .3, fell, 0, 1.5, .75); hals.rotation.x = .5; pf.add(hals); pf.add(box(.28, .3, .55, fell, 0, 1.75, 1.05));
+  pf.position.set(0, 0, 3.0); g.add(pf);
+  const fa = new THREE.Group(), t = mat(0x5a6a3a); fa.add(box(.4, .55, .28, t, 0, 1.55, 0)); const kp = mesh(new THREE.IcosahedronGeometry(.17, 0), mat(PAL.haut)); kp.position.y = 2.0; fa.add(kp); fa.position.set(0, .05, .9); g.add(fa);
+  g.scale.setScalar(.9); scene.add(g); LEBEN.wurzeln.push(g); KARREN.push({ g, pts, seg, L, ph: KARREN.length * .37, nach: k.nach }); }
+window.__karren = () => KARREN.map(k => ({ nach: k.nach, u: +k.g.position.x.toFixed(1), w: +(-k.g.position.z).toFixed(1) }));
 // ---- Statisches zusammenfassen (wenige Draw-Calls fuers Handy): alle Meshes in Gruppen ausser Feuer/Figur/Wolken
 { const bewegt = new Set(); for (const f of c.FEUER) bewegt.add(f.pl.parent); for (const m of c.MENSCHEN) bewegt.add(m); for (const w of c.WOLKEN) bewegt.add(w.g); for (const g of LEBEN.wurzeln) bewegt.add(g); for (const u of UEBEN) bewegt.add(u.m); for (const v of LEBEN.voegel) bewegt.add(v.g);
   const topf = new Map(), weg = new Set(); c.scene.updateMatrixWorld(true); for (const u of UEBEN) { u.m.updateWorldMatrix(true, false); c.scene.attach(u.m); }   // 20.10. Fix (aus Reel-Kopie): uebende Soldaten vor dem Zusammenfassen in die Szene haengen, sonst gehen sie mit der Kaserne weg
@@ -2469,7 +2499,12 @@ for (const l of LAGE) {
     l.bewohner.forEach((h, i) => { const p = l.g.localToWorld(new THREE.Vector3(-L / 2 + .5 + 2.9 * (i + .5), 2.4 + i * 1.35, l.lok.max.z + .2));
       neuSchild({ u: l.u, w: l.w, dach: p, groesse: l.groesse, bewohner: [h], alle: l.bewohner, prio: PRIO.haus }, `<span class="hd">@${esc(h)}</span>${beruf(h)}`); }); }
   else if (l.typ === "steinhaus_paar") neuSchild({ ...l, prio: PRIO.haus }, `<span class="hd">${l.bewohner.map(h => "@" + esc(h)).join(" &amp; ")}</span><span class="klein">First couple in town</span>`);   // ZUSAGEN-1810
-  else if (!l.bewohner.length) neuSchild({ ...l, bewohner: [], prio: PRIO.bau }, `<span>${esc(l.nutzung || TX.leeres_haus)}</span>`, "arbeit");
+  else if (!l.bewohner.length) { neuSchild({ ...l, bewohner: [], prio: PRIO.bau }, `<span>${esc(l.nutzung || TX.leeres_haus)}</span>`, "arbeit");
+    const bau = l.umbau && l.id && ((DATEN.wirtschaft || {}).bau || []).find(b => b.ziel === l.id);   // 21.10. Wirtschaft v1: Baustelle per Haus-ID (g1), nicht per Bildlage
+    if (bau) { const k = bau.kosten, b = bau.bezahlt, txt = Object.keys(k).map(r => `${Math.floor(b[r] || 0)} / ${k[r]} ${r === "stein" ? "stone" : r === "holz" ? "wood" : r}`).join(" · ");
+      const sp = l.g && l.g.userData.schildP ? l.g.localToWorld(l.g.userData.schildP.clone()) : l.dach.clone();   // am Geruest der Halle
+      neuSchild({ u: l.u, w: l.w, dach: sp, groesse: l.groesse, bewohner: [], prio: PRIO.bau + 5, immer: true },
+        `<span>${esc(bau.name || "Town hall")} · ${bau.fertig_bereit ? "ready to build" : "scaffold"}</span><span class="klein">${txt}</span>`, "geruest"); } }
   else neuSchild({ ...l, prio: PRIO.haus }, l.bewohner.map(h => `<span class="hd">@${esc(h)}</span>${beruf(h)}`).join(""));
 }
 if (FIG.fass) neuSchild({ u: FIG.fass.u, w: FIG.fass.w, dach: FIG.fass.dach, groesse: 6, bewohner: [FIG.fass.handle], prio: PRIO.haus },
@@ -2560,7 +2595,7 @@ function schilder() {
   if (FIGURSCHILD.l.slot?.z) FIGURSCHILD.l.dach.setFromMatrixPosition(FIGURSCHILD.l.slot.kopf.matrixWorld).y += 1.2;
   for (const s of SCH) { const fig = s === FIGURSCHILD, an = s === markiert || fig; v.copy(s.l.dach).project(cam);
     const im = v.z < 1 && v.x > -1.05 && v.x < 1.05 && v.y > -1.05 && v.y < 1.05;
-    if (fig ? performance.now() < s.l.bis && im : (nah || an) && (im || an)) { s.px = (v.x + 1) / 2 * W; s.py = (1 - v.y) / 2 * H; s.an = an; kand.push(s); if (s.d.style.display !== "block") s.d.style.display = "block"; s.d.classList.toggle("an", an); }
+    if (fig ? performance.now() < s.l.bis && im : (nah || an || (s.l.immer && K.b < 110)) && (im || an)) { s.px = (v.x + 1) / 2 * W; s.py = (1 - v.y) / 2 * H; s.an = an; kand.push(s); if (s.d.style.display !== "block") s.d.style.display = "block"; s.d.classList.toggle("an", an); }
     else if (s.d.style.display !== "none") { s.d.style.display = "none"; s.letzt = null; } }
   if (FIGURSCHILD.d.style.display === "block") FIGURSCHILD.an = true;
   const belegt = KARTEN.map(k => { const r = k.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
@@ -2601,6 +2636,8 @@ function figurenLeben(t) {
   if (K_.schild) { K_.schild.l.dach.set(g.position.x, g.position.y + 1.6, g.position.z); K_.schild.l.u = g.position.x; K_.schild.l.w = -g.position.z; } }
 function leben(t) {   // Tiere + laufende Bewohner (wie im Reel), leichtgewichtig
   figurenLeben(t);
+  for (const k of KARREN) { let d = ((t * 1.6 / k.L + k.ph) % 1) * k.L, i = 0; while (i < k.seg.length - 1 && d > k.seg[i]) { d -= k.seg[i]; i++; }   // Lieferfahrt zum Dorf, dann von vorn
+    const a = k.pts[i], b = k.pts[i + 1], f = Math.min(1, d / k.seg[i]), u = a.u + (b.u - a.u) * f, w = a.w + (b.w - a.w) * f; k.g.position.set(u, hoehe(u, w), -w); k.g.rotation.y = Math.atan2(b.u - a.u, -(b.w - a.w)); }
   for (const u of UEBEN) { const z = (((t * 1.6 + u.ph) % 2) + 2) % 2, hieb = z < .35 ? z / .35 : z < .6 ? 1 - (z - .35) / .25 : 0; u.sch.rotation.x = -2.4 + 2.0 * hieb; }   // ausholen -> Schlag nach vorn
   for (const r of LEBEN.rehe) { const z = t + r.ph; r.g.userData.hals.rotation.z = -.6 * Math.max(0, Math.sin(z * .9)) ** 2; r.g.position.x = r.u + .25 * Math.sin(z * .23); }
   for (const h of LEBEN.hasen) { const z = t * 1.3 + h.ph, k = Math.floor(z), f = z - k, sprung = f < .35 ? Math.sin(f / .35 * Math.PI) : 0, q = Math.min(1, f / .35);
@@ -2627,6 +2664,7 @@ function schleife(ts) {
   bewegen(c, t, ng, NS * (WETTER === "nebel" ? .8 : 1), 2);   // 18.10.: Feuerschatten (Wuerfel = 6 Durchgaenge) tags gar nicht, nachts jedes 4. Bild neu
   FEUERSCHATTEN = (FEUERSCHATTEN + 1) % 4; for (const f of c.FEUER) { f.pl.shadow.autoUpdate = false; if (ng > .35 && FEUERSCHATTEN === 0 || FPS.n < 2) f.pl.shadow.needsUpdate = true; } leben(t); ALLTAG.tick(tagSek(ZEIT.sek()), t); ansicht(); NIED?.tick(t); renderer.render(c.scene, cam); schilder(); FPS.n++;
   if (ts - (UHR_T || 0) > 10000) { UHR_T = ts; uhrText(); }
+  lagerLeiste(ts);
   { const f = K.b > 700; if (FERN.an !== f) { FERN.an = f; FERN.teile.forEach(m => m.visible = f); } }   // weite Sicht
   { const e = K.b > 80; if (LOD.stand !== e) { LOD.stand = e; LOD.detail.forEach(m => m.visible = !e); LOD.einfach.forEach(m => m.visible = e); } }   // ferne Viertel: einfach beim Herauszoomen
   LEISTUNG.n++; if (ts - LEISTUNG.t0 > 3000) { const fps = LEISTUNG.n * 1000 / (ts - LEISTUNG.t0); LEISTUNG.t0 = ts; LEISTUNG.n = 0; LEISTUNG.letzt = fps;   // schwache Bildrate: Niederschlag aus

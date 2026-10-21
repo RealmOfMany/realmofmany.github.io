@@ -51,6 +51,11 @@
   #kopf.zu #kopfzahl{color:#5c4526}
   #kopf.zu #kopfzahl::before{content:" · "}
   #kopf.zu #wunsch,#kopf.zu #seit,#kopf.zu #uhr{display:none!important}
+  #lager{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:6px;font:600 13px Georgia,serif;color:#3a2a18}
+  #lager .ort{font-weight:400;font-size:12px;color:#7a5a30;margin-right:2px}
+  #lager .chip{background:#efe3c4;border:1px solid #b8955a;border-radius:10px;padding:1px 7px;white-space:nowrap}
+  #kopf.zu #lager{margin-top:4px}
+  .schild.geruest{background:#5a4a30;border-color:#c9a04a;color:#fbefd6}
   #kopf #pfeil{float:right;font-size:14px;color:#7a5a30;margin-left:8px;line-height:24px}
   #kopf:not(.zu) #pfeil{position:absolute;right:14px;bottom:8px}
 </style>
@@ -58,7 +63,7 @@
 <body>
 <canvas id="c"></canvas>
 <div id="schilder"></div>
-<div id="kopf" class="karte zu"><span id="pfeil">▾</span><h1>Realm of Many</h1><div id="uhr"></div><div id="kopfzahl">…</div><div id="wunsch"></div><div id="seit"></div></div>
+<div id="kopf" class="karte zu"><span id="pfeil">▾</span><h1>Realm of Many</h1><div id="uhr"></div><div id="kopfzahl">…</div><div id="lager" hidden></div><div id="wunsch"></div><div id="seit"></div></div>
 <div id="unten" class="karte">
   <form id="form" autocomplete="off"><input id="suche" placeholder="Find your house — @yourname" autocapitalize="none" autocorrect="off" spellcheck="false" enterkeyhint="search"><button>Find</button></form>
   <div id="meldung"></div>
