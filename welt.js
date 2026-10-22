@@ -674,7 +674,7 @@ const VARIANTEN = { holzhuette: [{}, { anbau: true }, {}], fachwerk: [{}, { hoch
 const NAMEN = { holzhuette: "Holzhuette", fachwerk: "Fachwerkhaus", steinkate: "Steinkate", langhaus: "Langhaus", wachturm: "Wachturm", schmiede: "Schmiede",
   fischerhuette: "Fischerhuette", baumhaus: "Baumhaus", jurte: "Jurte", kapelle: "Kapelle / Schrein", muehle: "Muehle", hof: "Bauernhof" };
 // Ein Haus fuer einen Follower: Typ + Seed (z. B. Hash des Namens) -> immer dasselbe, aber unterscheidbare Haus
-let HAUS_STEIN = false;   // 21.10.: Stein-Umbau je Gebaeude (Datenflag stein), gleiche Masse (gleiche Zufallsfolge)
+let HAUS_STEIN = false; const TOR_BAU = [];   // 22.10.: Tor-Baustellen (Wirtschaft) fuer das Schild   // 21.10.: Stein-Umbau je Gebaeude (Datenflag stein), gleiche Masse (gleiche Zufallsfolge)
 function hausFuer(typ, seed, varIdx = seed % 3) { const alt = R; R = rng(seed * 7919 + 13); const g = TYPEN[typ](VARIANTEN[typ][varIdx]); R = alt; return g; }
 
 // ---------------------------------------------------------------- Seiten: ?typ=NAME (Katalogzelle) | ?dorf=1
@@ -1784,6 +1784,14 @@ for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
     for (const x of [-L / 2, L / 2]) { const pf = mesh(new THREE.CylinderGeometry(.26, .3, 4.2, 7), mat("stamm")); pf.position.set(x, 2.1, 0); g.add(pf); }
     g.add(box(L + .8, .3, .32, mat("holz"), 0, 3.9, 0)); g.add(box(L + 1.2, .14, .9, mat("holzDunkel"), 0, 4.15, 0));
     for (const sg of [-1, 1]) { const f = box(L * .5 - .2, 2.4, .12, mat("holz"), 0, 1.3, 0), d = new THREE.Group(); f.position.x = -sg * (L * .25 - .1); d.add(f); d.position.set(sg * L / 2, 0, 0); d.rotation.y = sg * 1.25; g.add(d); }
+    { const cu = (a.u + b.u) / 2, cw = (a.w + b.w) / 2, bau = ((DATEN.wirtschaft || {}).bau || []).find(x => x.typ === "tor" && !x.fertig && Math.hypot(x.u - cu, x.w - cw) < 10);
+      if (bau) {   // 22.10.: Stein-Baustelle am Tor — Geruest an beiden Torpfosten + Steinhaufen, Schild „x / 50 stone“ (TOR_BAU)
+        const st = mat("stamm"), br = mat("holz"), sn = mat("stein"), sd = mat("steinDunkel");
+        for (const sx of [-1, 1]) { const x0 = sx * (L / 2 + 1.0); for (const dx of [-.6, .6]) for (const z of [-.75, .75]) g.add(box(.12, 4.8, .12, st, x0 + dx, 2.4, z));
+          for (const y of [1.4, 2.8, 4.2]) { g.add(box(1.4, .07, 1.7, br, x0, y, 0)); g.add(box(1.4, .07, .07, st, x0, y + .5, .8)); }
+          const dg = box(.07, 4.4, .07, st, x0, 2.4, .8); dg.rotation.z = sx * .32; g.add(dg); }
+        for (let i = 0; i < 10; i++) g.add(box(.7, .35, .45, i % 3 ? sn : sd, L / 2 + 2.8 + (i % 2) * .5, .18 + Math.floor(i / 4) * .36, -2.2 + (i % 4) * .55));
+        TOR_BAU.push({ bau, u: cu, w: cw, y: hoehe(cu, cw) + 5.6 }); } }
     setze(g, (a.u + b.u) / 2, (a.w + b.w) / 2, -Math.atan2(b.w - a.w, b.u - a.u)); toreGebaut++; }
   gd.tore = toreGebaut; gd.luecken = TORE.length - toreGebaut; gd.huettenluecken = hLuecken;
   const seil = (a, b) => { const L = Math.hypot(b.u - a.u, b.w - a.w), sl = box(L, .04, .04, mat(0xe8dcc0)); sl.position.set((a.u + b.u) / 2, (hoehe(a.u, a.w) + hoehe(b.u, b.w)) / 2 + .7, -(a.w + b.w) / 2); sl.rotation.y = -Math.atan2(b.w - a.w, b.u - a.u); SEILE.add(sl); };   // 18.10.: in Gruppe -> wird zusammengefasst (sonst 1 Draw-Call je Seil)
@@ -2563,6 +2571,8 @@ if ((DATEN.unterstand || []).length) { const y = hoehe(-3.6, .9) + 2.6;   // Bew
   for (const [i, h] of DATEN.unterstand.entries()) neuSchild({ u: -3.6, w: .9, dach: new THREE.Vector3(-3.6, y + i * .9, -.9), groesse: 8, bewohner: [h], prio: PRIO.haus }, `<span class="hd">@${esc(h)}</span><span class="klein">shelter by the fire</span>`); }
 const bauTitel = gd => { const name = gd.name || null, p = gd.prozent ?? Math.round((gd.fortschritt ?? 1) * 100);
   if (!name) return gd.schild || gd.wunsch; return p >= 100 ? `${name} · ${TX.gebaut}` : `${name} · ${fuell(TX.fertig_zu, { p })}`; };
+for (const tb of TOR_BAU) { const k = tb.bau.kosten, b = tb.bau.bezahlt, txt = Object.keys(k).map(r => `${Math.floor(b[r] || 0)} / ${k[r]} ${r === "stein" ? "stone" : r === "holz" ? "wood" : r}`).join(" · ");   // 22.10.: Tor-Baustelle
+  neuSchild({ u: tb.u, w: tb.w, dach: new THREE.Vector3(tb.u, tb.y, -tb.w), groesse: 6, bewohner: [], prio: PRIO.bau + 5, immer: true }, `<span>${esc(tb.bau.name || "Gate")} · ${tb.bau.fertig_bereit ? "ready to build" : "scaffold"}</span><span class="klein">${txt}</span>`, "geruest"); }
 for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.schildP && (gd.von || gd.name)) neuSchild({ u: gd.mitte.u, w: gd.mitte.w, dach: gd.schildP, groesse: 14, bewohner: [], prio: PRIO.bau }, `<span>${esc(bauTitel(gd))}</span>` + (gd.von ? `<span class="klein">${esc(TX.wunsch_von)} @${esc(gd.von)}</span>` : ""), "arbeit");
 for (const gd of W_GEB) if (gd.typ !== "palisade_baustelle" && gd.typ !== "holzfaellerhuette" && gd.schildP && gd.von)
   neuSchild({ u: gd.u, w: gd.w, dach: gd.schildP, groesse: 8, bewohner: [], prio: PRIO.bau }, `<span>${esc(bauTitel(gd))}</span><span class="klein">${esc(TX.wunsch_von)} @${esc(gd.von)}</span>`, "arbeit");
