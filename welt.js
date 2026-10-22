@@ -1781,8 +1781,15 @@ for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
     if (L0 > 10) { const m = Math.round((t.von + t.bis) / 2), halb = Math.max(1, Math.round(2.6 / (L0 / Math.max(1, t.bis - t.von + 2)))); for (let i = t.von; i <= t.bis; i++) if (Math.abs(i - m) > halb && !HUETTE_NAH(PP[i].u, PP[i].w)) pfahl(i, PP[i]); t.von = m - halb; t.bis = m + halb; } }
   for (const t of TORE) { const a = PP[Math.max(0, t.von - 1)], b = PP[Math.min(N - 1, t.bis + 1)], L = Math.hypot(b.u - a.u, b.w - a.w), g = new THREE.Group();
     if (t.bis < V || t.von >= Bi || L > 10 || L < 1.2) continue;   // Weg laeuft an der Palisade entlang -> offene Luecke statt Riesentor
-    for (const x of [-L / 2, L / 2]) { const pf = mesh(new THREE.CylinderGeometry(.26, .3, 4.2, 7), mat("stamm")); pf.position.set(x, 2.1, 0); g.add(pf); }
-    g.add(box(L + .8, .3, .32, mat("holz"), 0, 3.9, 0)); g.add(box(L + 1.2, .14, .9, mat("holzDunkel"), 0, 4.15, 0));
+    const steinTor = ((DATEN.wirtschaft || {}).bau || []).find(x => x.typ === "tor" && x.fertig && Math.hypot(x.u - (a.u + b.u) / 2, x.w - (a.w + b.w) / 2) < 10);   // 22.10.: Tor in Stein (Stein-Schritt 2)
+    if (steinTor) { const sn = mat("stein"), sd = mat("steinDunkel");
+      for (const sx of [-1, 1]) { const x = sx * (L / 2 + .9); g.add(box(1.8, 5.2, 1.9, sn, x, 2.6, 0)); g.add(box(2.1, .3, 2.2, sd, x, 5.35, 0));   // zwei kleine Steintuerme
+        for (const zx of [-.6, 0, .6]) g.add(box(.42, .5, .42, sn, x + zx, 5.75, .85)); for (const zx of [-.6, 0, .6]) g.add(box(.42, .5, .42, sn, x + zx, 5.75, -.85));
+        g.add(box(.3, .6, .08, mat(0x1a1612), x, 3.6, .96)); }
+      g.add(box(L + .2, .7, 1.4, sn, 0, 4.25, 0)); g.add(box(L + .6, .2, 1.6, sd, 0, 4.7, 0));   // Sturz/Bogen
+      for (let i = 0; i < 5; i++) { const k = box(.5, .45, 1.42, i % 2 ? sd : sn, -L / 2 + .3 + i * (L - .6) / 4, 3.75, 0); g.add(k); } }
+    else { for (const x of [-L / 2, L / 2]) { const pf = mesh(new THREE.CylinderGeometry(.26, .3, 4.2, 7), mat("stamm")); pf.position.set(x, 2.1, 0); g.add(pf); }
+    g.add(box(L + .8, .3, .32, mat("holz"), 0, 3.9, 0)); g.add(box(L + 1.2, .14, .9, mat("holzDunkel"), 0, 4.15, 0)); }
     for (const sg of [-1, 1]) { const f = box(L * .5 - .2, 2.4, .12, mat("holz"), 0, 1.3, 0), d = new THREE.Group(); f.position.x = -sg * (L * .25 - .1); d.add(f); d.position.set(sg * L / 2, 0, 0); d.rotation.y = sg * 1.25; g.add(d); }
     { const cu = (a.u + b.u) / 2, cw = (a.w + b.w) / 2, bau = ((DATEN.wirtschaft || {}).bau || []).find(x => x.typ === "tor" && !x.fertig && Math.hypot(x.u - cu, x.w - cw) < 10);
       if (bau) {   // 22.10.: Stein-Baustelle am Tor — Geruest an beiden Torpfosten + Steinhaufen, Schild „x / 50 stone“ (TOR_BAU)
