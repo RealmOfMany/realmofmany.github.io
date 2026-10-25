@@ -1613,7 +1613,7 @@ uhrText();
 // ---- Lage der Haeuser: in Einzugsreihenfolge auf einer Spirale um das Feuer, frei von Bach/Feuer/Unterstand; Fischerhuetten ans Ufer
 WEILER = false; flussW = u => 9.5 + 1.8 * Math.sin(u / 5) + .6 * Math.sin(u / 2.3); PFADE = []; PLATZ = [[0, 0, 2.6]]; hoeheFn = hoeheDorf;
 const DORF_MITTE_W = 19.5, LAGE = [], belegt = [[0, 0, 4.5], [-3.6, .9, 3.2], [1.9, .5, 2]];
-const DOERFER = [DATEN.dorf2, DATEN.dorf3, DATEN.dorf4, DATEN.dorf5].map((d, i) => d && d.status === "angelegt" ? Object.assign(d, { nr: i + 2 }) : null).filter(Boolean);   // 18.10. 22:30: weitere Doerfer
+const DOERFER = [DATEN.dorf2, DATEN.dorf3, DATEN.dorf4, DATEN.dorf5, DATEN.dorf6].map((d, i) => d && d.status === "angelegt" ? Object.assign(d, { nr: i + 2 }) : null).filter(Boolean);   // 18.10. 22:30: weitere Doerfer
 // ---- Berg im Sueden: Hoehe als globale Funktion (Gebaeude/Figuren am Berg brauchen sie schon vorher) — 19.10. abends
 const BERG_DEF = DATEN.berg || { u: 0, w: -505, lu: 300, lw: 115, h: 62 }; BERG_DEF.steinbruch = BERG_DEF.steinbruch || { u: 30, w: BERG_DEF.w + BERG_DEF.lw * .62 };
 const MINEN_RAHMEN = (DATEN.gebaeude || []).filter(g => g.typ === "mine").map(g => ({ u: g.u, w: g.w, c: Math.cos(g.rot || 0), s: Math.sin(g.rot || 0) }));
@@ -2195,7 +2195,7 @@ const WALD = (() => {
   const WALDKERN = [...(DATEN.flaechen || []).filter(f => f.art === "landschaft").map(f => [f.u, f.w, 60]), ...DOERFER.map(d => [d.u, d.w, 260])];   // 18.10. 22:40: Landschaftsguertel = dichter Wald
   const nahDistGenau = (u, w) => { let m = 1e9; for (const [a, b, rr2] of ORTE) { const d = Math.hypot(u - a, (w - b) * .9) - rr2; if (d < m) m = d; } return m; };
   const U0 = Math.min(...ORTE.map(o => o[0])) - 150, U1 = Math.max(...ORTE.map(o => o[0])) + 150, W0 = Math.min(...ORTE.map(o => o[1])) - 110, W1 = Math.max(...ORTE.map(o => o[1])) + 120;
-  const ZIEL = 36000, VERSUCHE = 220000; let n = 0;
+  const ZIEL = 36000, VERSUCHE = Math.round(220000 * Math.max(1, (U1 - U0) * (W1 - W0) / (2238 * 1708))); let n = 0;   // 25.10.: gleiche Baumzahl, Versuche wachsen mit der Welt
   const C = 6, NX = Math.ceil((U1 - U0) / C) + 1, NW = Math.ceil((W1 - W0) / C) + 1, GR = new Float32Array(NX * NW);   // Abstands-Raster (schnell)
   for (let i = 0; i < NX; i++) for (let j = 0; j < NW; j++) GR[i * NW + j] = nahDistGenau(U0 + i * C, W0 + j * C);
   const nahDist = (u, w) => GR[Math.round((u - U0) / C) * NW + Math.round((w - W0) / C)];
@@ -2520,6 +2520,17 @@ for (const k of ((DATEN.wirtschaft || {}).karren || []).slice(0, 2)) { const D =
   pf.position.set(0, 0, 3.0); g.add(pf);
   const fa = new THREE.Group(), t = mat(0x5a6a3a); fa.add(box(.4, .55, .28, t, 0, 1.55, 0)); const kp = mesh(new THREE.IcosahedronGeometry(.17, 0), mat(PAL.haut)); kp.position.y = 2.0; fa.add(kp); fa.position.set(0, .05, .9); g.add(fa);
   g.scale.setScalar(.9); scene.add(g); LEBEN.wurzeln.push(g); KARREN.push({ g, pts, seg, L, ph: KARREN.length * .37, nach: k.nach }); }
+// 25.10.: Hafenboote — 2 Kaehne pendeln auf dem Bach zwischen Hafen (Dorf 1) und Dorf 6 (nur wenn beides existiert)
+const BOOTE = [];
+{ const hf = W_GEB.find(g => g.typ === "hafen"), d6 = (DOERFER || []).find(d => d.nr === 6);
+  if (hf && d6) { const u0 = hf.u + 6, u1 = d6.u - 30;
+    for (let i = 0; i < 2; i++) { const g = new THREE.Group(), hd = mat("holzDunkel"), ho = mat("holz");
+      g.add(box(3.6, .5, 1.4, hd, 0, .15, 0)); for (const sx of [-1, 1]) { const b2 = box(.99, .5, .99, hd, sx * 1.8, .15, 0); b2.rotation.y = Math.PI / 4; g.add(b2); }
+      g.add(box(3.3, .06, 1.2, ho, 0, .42, 0)); g.add(box(.08, 2.6, .08, mat("stamm"), .4, 1.7, 0)); const segel = box(.04, 1.8, 1.4, mat(0xe8dcc0), .45, 2.0, 0); g.add(segel);
+      for (let k = 0; k < 3; k++) { const f = mesh(new THREE.CylinderGeometry(.22, .22, .45, 8), mat(0x7a5232)); f.position.set(-1 + k * .55, .65, 0); g.add(f); }
+      const m = new THREE.Group(), t = mat(0x2a4a6a); m.add(box(.4, .6, .28, t, 0, 1.0, 0)); const kp = mesh(new THREE.IcosahedronGeometry(.17, 0), mat(PAL.haut)); kp.position.y = 1.45; m.add(kp); m.position.set(-1.5, .4, 0); g.add(m);
+      scene.add(g); LEBEN.wurzeln.push(g); BOOTE.push({ g, u0, u1, ph: i * .5 }); } } }
+window.__boote = () => BOOTE.map(b => ({ u: +b.g.position.x.toFixed(1), w: +(-b.g.position.z).toFixed(1) }));
 window.__karren = () => KARREN.map(k => ({ nach: k.nach, u: +k.g.position.x.toFixed(1), w: +(-k.g.position.z).toFixed(1) }));
 // ---- Statisches zusammenfassen (wenige Draw-Calls fuers Handy): alle Meshes in Gruppen ausser Feuer/Figur/Wolken
 { const bewegt = new Set(); for (const f of c.FEUER) bewegt.add(f.pl.parent); for (const m of c.MENSCHEN) bewegt.add(m); for (const w of c.WOLKEN) bewegt.add(w.g); for (const g of LEBEN.wurzeln) bewegt.add(g); for (const u of UEBEN) bewegt.add(u.m); for (const v of LEBEN.voegel) bewegt.add(v.g);
@@ -2730,6 +2741,8 @@ function figurenLeben(t) {
   if (K_.schild) { K_.schild.l.dach.set(g.position.x, g.position.y + 1.6, g.position.z); K_.schild.l.u = g.position.x; K_.schild.l.w = -g.position.z; } }
 function leben(t) {   // Tiere + laufende Bewohner (wie im Reel), leichtgewichtig
   figurenLeben(t);
+  for (const b of BOOTE) { const L = b.u1 - b.u0, z = ((t * 1.4 / L + b.ph) % 2), hin = z < 1, q = hin ? z : 2 - z, u = b.u0 + L * q, w = flussW(u);   // hin und zurück auf dem Bach
+    b.g.position.set(u, (FLUSS.y[Math.max(0, Math.min(FLUSS.y.length - 1, Math.round((u - FLUSS.u0) / FLUSS.schritt)))] || WASSER_Y) + .05, -w); b.g.rotation.y = hin ? 0 : Math.PI; }
   for (const k of KARREN) { let d = ((t * 1.6 / k.L + k.ph) % 1) * k.L, i = 0; while (i < k.seg.length - 1 && d > k.seg[i]) { d -= k.seg[i]; i++; }   // Lieferfahrt zum Dorf, dann von vorn
     const a = k.pts[i], b = k.pts[i + 1], f = Math.min(1, d / k.seg[i]), u = a.u + (b.u - a.u) * f, w = a.w + (b.w - a.w) * f; k.g.position.set(u, hoehe(u, w), -w); k.g.rotation.y = Math.atan2(b.u - a.u, -(b.w - a.w)); }
   for (const u of UEBEN) { const z = (((t * 1.6 + u.ph) % 2) + 2) % 2, hieb = z < .35 ? z / .35 : z < .6 ? 1 - (z - .35) / .25 : 0; u.sch.rotation.x = -2.4 + 2.0 * hieb; }   // ausholen -> Schlag nach vorn
