@@ -1613,7 +1613,7 @@ uhrText();
 // ---- Lage der Haeuser: in Einzugsreihenfolge auf einer Spirale um das Feuer, frei von Bach/Feuer/Unterstand; Fischerhuetten ans Ufer
 WEILER = false; flussW = u => 9.5 + 1.8 * Math.sin(u / 5) + .6 * Math.sin(u / 2.3); PFADE = []; PLATZ = [[0, 0, 2.6]]; hoeheFn = hoeheDorf;
 const DORF_MITTE_W = 19.5, LAGE = [], belegt = [[0, 0, 4.5], [-3.6, .9, 3.2], [1.9, .5, 2]];
-const DOERFER = [DATEN.dorf2, DATEN.dorf3, DATEN.dorf4].map((d, i) => d && d.status === "angelegt" ? Object.assign(d, { nr: i + 2 }) : null).filter(Boolean);   // 18.10. 22:30: weitere Doerfer
+const DOERFER = [DATEN.dorf2, DATEN.dorf3, DATEN.dorf4, DATEN.dorf5].map((d, i) => d && d.status === "angelegt" ? Object.assign(d, { nr: i + 2 }) : null).filter(Boolean);   // 18.10. 22:30: weitere Doerfer
 // ---- Berg im Sueden: Hoehe als globale Funktion (Gebaeude/Figuren am Berg brauchen sie schon vorher) — 19.10. abends
 const BERG_DEF = DATEN.berg || { u: 0, w: -505, lu: 300, lw: 115, h: 62 }; BERG_DEF.steinbruch = BERG_DEF.steinbruch || { u: 30, w: BERG_DEF.w + BERG_DEF.lw * .62 };
 const MINEN_RAHMEN = (DATEN.gebaeude || []).filter(g => g.typ === "mine").map(g => ({ u: g.u, w: g.w, c: Math.cos(g.rot || 0), s: Math.sin(g.rot || 0) }));
