@@ -2563,12 +2563,18 @@ const K = { b: startB, u: (RU[0] + RU[1]) / 2, w: (RW[0] + RW[1]) / 2 + .02 * st
 const START = { b: K.b, u: K.u, w: K.w };
 const ALLE_U = [0, ...LAGE.map(l => l.u), ...DOERFER.flatMap(d => [d.u - 250, d.u + 250])], B_WEIT = (Math.max(...ALLE_U) - Math.min(...ALLE_U)) * 1.12 + 60;   // 18.10. Fix: weit genug fuer beide Doerfer
 const B_MIN = 12, B_MAX = Math.min(Math.max(60, startB * 1.4, B_WEIT), TER * .5);   // nie weiter heraus, als Gelaende da ist
+// 26.10. (Anthony: „zoom die totale enger ran“): Hochformat-Totale gedreht — beim Herauszoomen dreht die Ansicht um 90° (Ost oben) und kippt steiler,
+// damit die breite Welt (Dorf 3 … Dorf 6) die Hoehe des Handys nutzt; maximale Breite = Nord-Sued-Ausdehnung statt Ost-West.
+const W_ALLE = [0, ...LAGE.map(l => l.w), ...DOERFER.flatMap(d => [d.w - 260, d.w + 260]), BERG_DEF.w - BERG_DEF.lw], B_HOCH = Math.min(Math.max(60, startB * 1.4, (Math.max(...W_ALLE) - Math.min(...W_ALLE)) * 1.2 + 60), TER * .5);
+const HOCHKANT = () => innerHeight > innerWidth * 1.15, bMax = () => HOCHKANT() ? B_HOCH : B_MAX;
+const WEIT = () => HOCHKANT() ? sst(.45, .96, K.b / B_HOCH) : 0;   // 0 = normal, 1 = gedrehte Totale
 // 19.10. spät: Welt drehen (nur Azimut, Neigung bleibt) — DREH in Grad, weich zum Ziel
-let DREH = 0, DREH_ZIEL = 0; const drehRad = () => DREH * Math.PI / 180, VORN = () => [-Math.sin(drehRad()), Math.cos(drehRad())], RECHTS = () => [Math.cos(drehRad()), Math.sin(drehRad())];
+let DREH = 0, DREH_ZIEL = 0, DREH_AUTO = 0; const drehRad = () => (DREH + DREH_AUTO) * Math.PI / 180, VORN = () => [-Math.sin(drehRad()), Math.cos(drehRad())], RECHTS = () => [Math.cos(drehRad()), Math.sin(drehRad())];
 let DREH_T = performance.now();
 function ansicht() { const jetzt = performance.now(), dt = Math.min(.5, (jetzt - DREH_T) / 1000); DREH_T = jetzt; if (Math.abs(DREH_ZIEL - DREH) > .05) DREH += (DREH_ZIEL - DREH) * Math.min(1, dt * 7); else DREH = DREH_ZIEL;
-  klemmen(); const z = K.b, off = .10 * z * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180) * .5, [vu, vw] = VORN();
-  kamera(c, z, K.u + off * vu, K.w + off * vw, window.__az ?? (-4 + DREH), window.__el ?? 33, window.__zy || 0); }
+  const wt = WEIT(); DREH_AUTO = -90 * wt;
+  klemmen(); const z = K.b, off = .10 * z * (innerHeight / innerWidth) / Math.sin(31 * Math.PI / 180) * .5 * (1 - wt), [vu, vw] = VORN();
+  kamera(c, z, K.u + off * vu, K.w + off * vw, window.__az ?? (-4 * (1 - wt) + DREH + DREH_AUTO), window.__el ?? (33 + 25 * wt), window.__zy || 0); }
 window.__drehen = g => { DREH_ZIEL = DREH = g; };   // TURM-1910 (nur Pruefung: Orbit)
 const zeiger = new Map(); let zieh = null, pinch = null;
 const cv = renderer.domElement; cv.style.touchAction = "none";
@@ -2576,7 +2582,7 @@ let drehZieh = null; cv.addEventListener("contextmenu", e => e.preventDefault())
 cv.addEventListener("pointerdown", e => { if (e.button === 2) { drehZieh = [e.clientX, DREH_ZIEL]; cv.setPointerCapture?.(e.pointerId); return; }
   zeiger.set(e.pointerId, [e.clientX, e.clientY]); K.ziel = null; if (zeiger.size === 1) zieh = [e.clientX, e.clientY, K.u, K.w]; else { zieh = null; const [a, b] = [...zeiger.values()]; pinch = [Math.hypot(a[0] - b[0], a[1] - b[1]), K.b, Math.atan2(b[1] - a[1], b[0] - a[0]), DREH_ZIEL]; } });
 cv.addEventListener("pointermove", e => { if (!zeiger.has(e.pointerId)) return; zeiger.set(e.pointerId, [e.clientX, e.clientY]);
-  if (pinch && zeiger.size === 2) { const [a, b] = [...zeiger.values()]; K.b = Math.min(B_MAX, Math.max(B_MIN, pinch[1] * pinch[0] / Math.max(20, Math.hypot(a[0] - b[0], a[1] - b[1]))));
+  if (pinch && zeiger.size === 2) { const [a, b] = [...zeiger.values()]; K.b = Math.min(bMax(), Math.max(B_MIN, pinch[1] * pinch[0] / Math.max(20, Math.hypot(a[0] - b[0], a[1] - b[1]))));
     let dw = Math.atan2(b[1] - a[1], b[0] - a[0]) - pinch[2]; dw = Math.atan2(Math.sin(dw), Math.cos(dw)); if (Math.abs(dw) > .05 || pinch[4]) { pinch[4] = true; DREH_ZIEL = DREH = pinch[3] + dw * 180 / Math.PI; } }
   else if (zieh) { const s = K.b / innerWidth, dx = (e.clientX - zieh[0]) * s, dy = (e.clientY - zieh[1]) * s / Math.sin(33 * Math.PI / 180), [ru, rw] = RECHTS(), [vu, vw] = VORN();
     K.u = zieh[2] - dx * ru + dy * vu; K.w = zieh[3] - dx * rw + dy * vw; klemmen(); } });
@@ -2585,11 +2591,11 @@ window.addEventListener("pointerup", e => { if (e.button === 2) drehZieh = null;
 window.addEventListener("keydown", e => { if (e.target && /INPUT|TEXTAREA/.test(e.target.tagName)) return; const k = e.key.toLowerCase(); if (k === "q") DREH_ZIEL -= 22.5; else if (k === "e") DREH_ZIEL += 22.5; });
 const los = e => { zeiger.delete(e.pointerId); if (zeiger.size < 2) pinch = null; if (zeiger.size === 0) zieh = null; };
 cv.addEventListener("pointerup", los); cv.addEventListener("pointercancel", los);
-cv.addEventListener("wheel", e => { e.preventDefault(); K.ziel = null; K.b = Math.min(B_MAX, Math.max(B_MIN, K.b * (1 + Math.sign(e.deltaY) * .1))); }, { passive: false });
+cv.addEventListener("wheel", e => { e.preventDefault(); K.ziel = null; K.b = Math.min(bMax(), Math.max(B_MIN, K.b * (1 + Math.sign(e.deltaY) * .1))); }, { passive: false });
 function klemmen() { const g = Math.max(maxR + 6, (RU[1] - RU[0]) / 2 + 8, (RW[1] - RW[0]) / 2 + 8); K.u = Math.max(-g, Math.min(g, K.u)); K.w = Math.max(-g * 1.2, Math.min(g * 1.3, K.w));
   // Randschutz: sichtbares Rechteck (Breite b, Tiefe b*ASP/sin) bleibt innerhalb des Gelaendes
-  K.b = Math.min(K.b, B_MAX); const hu = K.b / 2, hw = K.b * ASPS / SINE / 2 + 4, off = .10 * K.b * ASPS / Math.sin(31 * Math.PI / 180) * .5, R2 = TER / 2 - 6;
-  if (Math.abs(((DREH % 360) + 360) % 360) < .01) { K.u = Math.max(-R2 + hu, Math.min(R2 - hu, K.u)); const wt = Math.max(2 - R2 + hw, Math.min(2 + R2 - hw, K.w + off)); K.w = wt - off; return; }
+  K.b = Math.min(K.b, bMax()); const hu = K.b / 2, hw = K.b * ASPS / SINE / 2 + 4, off = .10 * K.b * ASPS / Math.sin(31 * Math.PI / 180) * .5, R2 = TER / 2 - 6;
+  if (Math.abs((((DREH + DREH_AUTO) % 360) + 360) % 360) < .01) { K.u = Math.max(-R2 + hu, Math.min(R2 - hu, K.u)); const wt = Math.max(2 - R2 + hw, Math.min(2 + R2 - hw, K.w + off)); K.w = wt - off; return; }
   const rr = Math.min(R2 * .9, Math.max(hu, hw)), [vu, vw] = VORN(), mu = K.u + off * vu, mw = K.w + off * vw, cu2 = Math.max(-R2 + rr, Math.min(R2 - rr, mu)), cw2 = Math.max(2 - R2 + rr, Math.min(2 + R2 - rr, mw));
   K.u += cu2 - mu; K.w += cw2 - mw; }
 
