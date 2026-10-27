@@ -1082,6 +1082,30 @@ const BAUTEN = {
     const leute = gd.leute || [], pl = [[-5.2, .6], [5.2, .6]]; g.userData.leuteP = [];
     leute.forEach((l, i) => { const P = pl[i % pl.length]; mann(P[0], P[1], i % 2 ? -.4 : .4, [0xe8e0d0, 0x3a5a7a][i % 2]); g.userData.leuteP.push({ h: l.h, rolle: l.rolle, p: new THREE.Vector3(P[0], 2.9, P[1]) }); });
     gd._g = g; return g; },
+  bauhuette(gd) {   // 27.10.: Upgrade Day 12 (most ♥ noch nicht gebaut: @billis_kwttas „asking to be a builder 🦺🛠️“, 30♥ unter Day 10) — Bauhütte: Fachwerk-Werkstatt, offener Schuppen,
+    // Tretradkran mit Steinblock, Steinquader, Holzstapel, Gerüst, Zeichentisch mit Plan; Baumeister (oranger Überwurf, Helm) + Ingenieur mit Selbstbezug davor
+    const g = new THREE.Group(), ho = mat("holz"), hd = mat("holzDunkel"), sn = mat("stein"), sd = mat("steinDunkel"), seil = mat(0xb8a070), papier = mat(0xece2c8);
+    const w1 = haus({ l: 7.0, b: 5.0, h: 3.0, wand: "fachwerk", dach: "schindel", kamin: true }); w1.position.set(-3.6, 0, -3.0); g.add(w1);
+    for (const [x, z] of [[1.4, -5.2], [6.6, -5.2], [1.4, -1.2], [6.6, -1.2]]) g.add(box(.25, 2.8, .25, hd, x, 1.4, z));   // offener Schuppen (Pultdach)
+    const pd = box(5.9, .15, 4.8, mat("schindel"), 4.0, 2.95, -3.2); pd.rotation.x = -.12; g.add(pd); g.add(box(4.6, .7, .8, hd, 4.0, .9, -4.6));   // Werkbank
+    for (const x of [2.6, 3.6, 4.6]) g.add(box(.12, .5, .12, mat(0x6a6a6a), x, 1.5, -4.6));
+    // Tretradkran
+    const kr = new THREE.Group(); const rad = mesh(new THREE.TorusGeometry(1.5, .12, 6, 18), ho); rad.position.y = 1.7; kr.add(rad);
+    for (let k = 0; k < 4; k++) { const sp = box(.08, 3.0, .08, hd, 0, 1.7, 0); sp.rotation.z = k * Math.PI / 4; kr.add(sp); }
+    kr.add(box(.3, .3, 1.6, hd, 0, 1.7, 0)); for (const sz of [-.7, .7]) { const st = box(.2, 3.4, .2, hd, 0, 1.7, sz); kr.add(st); }
+    const arm = box(.25, .25, 5.2, hd, 0, 4.3, 1.4); arm.rotation.x = -.5; kr.add(arm); kr.add(box(.22, 3.6, .22, hd, 0, 2.0, -.6));
+    kr.add(box(.04, 2.4, .04, seil, 0, 3.9, 3.4)); kr.add(box(.9, .6, .7, sn, 0, 2.5, 3.4)); kr.position.set(-4.4, 0, 2.6); kr.rotation.y = .5; g.add(kr);
+    for (let i = 0; i < 9; i++) g.add(box(1.1, .55, .7, i % 3 ? sn : sd, 1.0 + (i % 3) * 1.15, .28 + Math.floor(i / 3) * .56, 1.6));   // Steinquader
+    for (let i = 0; i < 7; i++) { const st = mesh(new THREE.CylinderGeometry(.16, .16, 3.4, 6), ho); st.rotation.z = Math.PI / 2; st.position.set(5.0, .17 + Math.floor(i / 4) * .3, 1.0 + (i % 4) * .34 + (i >= 4 ? .17 : 0)); g.add(st); }
+    for (const x of [-1.6, 0.2]) for (const y of [1.2, 2.6]) g.add(box(.12, 2.8, .12, hd, x, 1.4, -5.75)); g.add(box(2.0, .1, .7, ho, -.7, 1.9, -6.0)); g.add(box(2.0, .1, .7, ho, -.7, 3.0, -6.0));   // Gerüst
+    g.add(box(1.4, .08, .9, ho, 2.6, 1.0, 4.0)); for (const [x, z] of [[2.0, 3.65], [3.2, 3.65], [2.0, 4.35], [3.2, 4.35]]) g.add(box(.08, 1.0, .08, hd, x, .5, z)); g.add(box(1.0, .02, .7, papier, 2.6, 1.05, 4.0));   // Zeichentisch + Plan
+    const mann = (x, z, ry, farbe, helm) => { const m = new THREE.Group(), t = mat(farbe);
+      for (const dx of [-.11, .11]) m.add(box(.16, .75, .18, mat(0x2a2420), dx, .38, 0)); m.add(box(.46, .72, .3, t, 0, 1.1, 0)); const kopf = mesh(new THREE.IcosahedronGeometry(.19, 0), mat(PAL.haut)); kopf.position.y = 1.62; m.add(kopf);
+      if (helm) { const hm = mesh(new THREE.SphereGeometry(.23, 8, 5, 0, 6.283, 0, 1.5), mat(0xe8b830)); hm.position.y = 1.7; m.add(hm); m.add(box(.5, .05, .32, mat(0xe8e0d0), 0, 1.25, .01)); }
+      for (const sx of [-1, 1]) m.add(box(.13, .6, .14, t, sx * .31, 1.1, 0)); m.position.set(x, 0, z); m.rotation.y = ry; m.scale.setScalar(1.05); g.add(m); };
+    const leute = gd.leute || [], pl = [[1.9, 4.8], [3.3, 4.8]], fb = [0xe07a1a, 0x2a4a7a]; g.userData.leuteP = [];
+    leute.forEach((l, i) => { const P = pl[i % pl.length]; mann(P[0], P[1], i % 2 ? -.5 : .5, fb[i % 2], i === 0); g.userData.leuteP.push({ h: l.h, rolle: l.rolle, p: new THREE.Vector3(P[0], 2.6, P[1]) }); });
+    gd._g = g; return g; },
   monument(gd) {   // 21.10.: Monument für die Gründer (most ♥ unter Day 6 Part 2: @aaronchittock „a monument (statues) to its founders“, 17♥) — Steinsockel mit Stufen, 4 Steinstatuen (die ersten 4 Bewohner), Bronzetafel ohne Schrift, Blumenbeete, Bänke
     const g = new THREE.Group(), st = mat(0xb8b0a0), st2 = mat(0x9a9284), st3 = mat(0xc8c0b0), bronze = mat(0x8a6a3a), holz = mat("holz"), bl = [0xb06ab0, 0xe8d040, 0xe8e8f0, 0xd05a5a].map(c => mat(c)), gr = mat(0x4a7a3a);
     g.add(box(6.0, .25, 6.0, st2, 0, .12, 0)); g.add(box(5.0, .25, 5.0, st2, 0, .37, 0)); g.add(box(3.4, 1.1, 3.4, st, 0, 1.05, 0)); g.add(box(3.6, .16, 3.6, st2, 0, 1.66, 0));
@@ -1830,7 +1854,7 @@ const LEBEN = { rehe: [], hasen: [], voegel: [], laeufer: [], wurzeln: [] };
 for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
   const C = gd.c, PR = gd.r, N = gd.n, PP = [], SEILE = new THREE.Group(); scene.add(SEILE);
   const RAD = gd.radien ? (deg => { const d = ((deg % 360) + 360) % 360, k = Math.floor(d), f = d - k; return gd.radien[k % 360] * (1 - f) + gd.radien[(k + 1) % 360] * f; }) : () => PR;   // 18.10. abends: Radius je Winkel (aeussere Palisade um ganz Dorf 1)
-  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5, spital: 7.5, holzhof: 7.5, kraeuterladen: 6.5, baeckerei: 6.5, monument: 4.5, bank: 6.5, badehaus: 9, hafen: 8 };
+  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5, spital: 7.5, holzhof: 7.5, kraeuterladen: 6.5, baeckerei: 6.5, monument: 4.5, bank: 6.5, badehaus: 9, bauhuette: 9, hafen: 8 };
   const ARC = [];   // 18.10. abends: Pfaehle nach Bogenlaenge verteilen (bei Radius je Winkel sonst Loecher an Ausbuchtungen)
   if (gd.radien) { let L = 0, q = null; for (let k = 0; k <= 4000; k++) { const deg = gd.von_grad + (gd.bis_grad - gd.von_grad) * k / 4000, a = deg * Math.PI / 180, p = { u: C.u + Math.cos(a) * RAD(deg) * (gd.su || 1), w: C.w + Math.sin(a) * RAD(deg) * (gd.sw || 1), deg };
       if (q) L += Math.hypot(p.u - q.u, p.w - q.w); p.L = L; ARC.push(p); q = p; } }
@@ -2216,11 +2240,12 @@ const STADTMAUER = { pfloecke: 0, steine: 0, tore: [] };
   if (N > 10) { const sn = mat("stein"), sd = mat("steinDunkel"), pf = mat("holz"), rot = mat(0xc8402a), tuer = mat(0x1a1612);
     const bau = ((DATEN.wirtschaft || {}).bau || []).filter(b => b.typ === "stadtmauer" && b.fertig);
     const gebaut = new Set(); for (const b of bau) for (let i = b.i0; i <= b.i1; i++) gebaut.add(((i % N) + N) % N);
-    const nass = (u, w) => Math.abs(w - flussW(u)) < 6, weg = (u, w) => aufWeg(u, w, 1.5) || aufHauptweg(u, w);
+    const nass = (u, w) => Math.abs(w - flussW(u)) < 6, STR = (DATEN.strassen || []), aufStr = (u, w) => STR.some(l => l.some((p, j) => j && (() => { const [a1, b1] = l[j - 1], du = p[0] - a1, dw = p[1] - b1, L2 = du * du + dw * dw || 1, q = Math.max(0, Math.min(1, ((u - a1) * du + (w - b1) * dw) / L2)); return Math.hypot(u - a1 - du * q, w - b1 - dw * q) < 3.5; })())),
+      weg = (u, w) => aufWeg(u, w, 1.5) || aufHauptweg(u, w) || aufStr(u, w);
     const P = i => ML[((i % N) + N) % N], B = 7.5;
     for (const b of bau) { if (b.tor === undefined) continue;   // Tormitte = Mitte des Weg-Laufs entlang der Linie
       const tr = []; for (let i = b.tor - 4; i <= b.tor + 4; i++) { const [u, w] = P(i), [u2, w2] = P(i + 1); for (let k = 0; k < 16; k++) { const q = k / 16, x = u + (u2 - u) * q, y = w + (w2 - w) * q; if (aufWeg(x, y, 0) || aufHauptweg(x, y)) tr.push([x, y, Math.atan2(w2 - w, u2 - u)]); } }
-      const [u0, w0] = P(b.tor), [u1, w1] = P(b.tor + 1), m = tr.length ? [tr.reduce((a, t) => a + t[0], 0) / tr.length, tr.reduce((a, t) => a + t[1], 0) / tr.length, tr[tr.length >> 1][2]] : [(u0 + u1) / 2, (w0 + w1) / 2, Math.atan2(w1 - w0, u1 - u0)];
+      const [u0, w0] = P(b.tor), [u1, w1] = P(b.tor + 1), m = b.tor_u !== undefined ? [b.tor_u, b.tor_w, Math.atan2(w1 - w0, u1 - u0)] : tr.length ? [tr.reduce((a, t) => a + t[0], 0) / tr.length, tr.reduce((a, t) => a + t[1], 0) / tr.length, tr[tr.length >> 1][2]] : [(u0 + u1) / 2, (w0 + w1) / 2, Math.atan2(w1 - w0, u1 - u0)];
       const g = new THREE.Group();
       for (const sx of [-1, 1]) { const x = sx * (B / 2 + 1.6); g.add(box(3.2, 7.2, 3.2, sn, x, 3.6, 0)); g.add(box(3.6, .35, 3.6, sd, x, 7.35, 0));
         for (const zx of [-1.1, 0, 1.1]) for (const zz of [-1.4, 1.4]) g.add(box(.6, .7, .5, sn, x + zx, 7.9, zz)); g.add(box(.4, .9, .1, tuer, x, 4.8, 1.62)); g.add(box(.4, .9, .1, tuer, x, 4.8, -1.62)); }
@@ -2338,7 +2363,7 @@ if (CFG.tiere) { const RT = rng(90210), rr2 = (a, b) => a + RT() * (b - a), M4 =
     else if (x < .9) hasen.push([u, w, RT() * 6.283, 1]); else fuechse.push([u, w, RT() * 6.283, 1]); }
   art("rehe", () => reh(false), rehe, true); art("hasen", hase, hasen); art("fuechse", fuchs, fuechse, true);
   window.__tiere = () => TIERE.n; }
-const GEB_R = { zauberturm: 9, weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5, spital: 7.5, holzhof: 7.5, kraeuterladen: 6.5, baeckerei: 6.5, monument: 4.5, bank: 6.5, badehaus: 9 };
+const GEB_R = { zauberturm: 9, weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5, spital: 7.5, holzhof: 7.5, kraeuterladen: 6.5, baeckerei: 6.5, monument: 4.5, bank: 6.5, badehaus: 9, bauhuette: 9 };
 window.__inventar = () => {  window.__pferde = W_GEB.filter(g => g.typ === "stall_klein").reduce((a, g) => a + (g.pferde || 2), 0) + RITT.n;
  let pf = 0; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "CylinderGeometry") pf++; });
   return { fluss: FLUSS.mesh ? FLUSS.y.length : 0, baeume: window.__waldbaeume || 0, baum_teile: window.__baeume || 0, huetten: LAGE.length,
@@ -2577,6 +2602,7 @@ const BOOTE = [];
       for (let k = 0; k < 3; k++) { const f = mesh(new THREE.CylinderGeometry(.22, .22, .45, 8), mat(0x7a5232)); f.position.set(-1 + k * .55, .65, 0); g.add(f); }
       const m = new THREE.Group(), t = mat(0x2a4a6a); m.add(box(.4, .6, .28, t, 0, 1.0, 0)); const kp = mesh(new THREE.IcosahedronGeometry(.17, 0), mat(PAL.haut)); kp.position.y = 1.45; m.add(kp); m.position.set(-1.5, .4, 0); g.add(m);
       scene.add(g); LEBEN.wurzeln.push(g); BOOTE.push({ g, u0, u1, ph: i * .5 }); } } }
+window.__flussW = u => flussW(u); window.__bootPlan = () => BOOTE.map(b => ({ u0: b.u0, u1: b.u1, ph: b.ph }));   // Reel: Kamera begleitet ein Boot
 window.__boote = () => BOOTE.map(b => ({ u: +b.g.position.x.toFixed(1), w: +(-b.g.position.z).toFixed(1) }));
 window.__karren = () => KARREN.map(k => ({ nach: k.nach, u: +k.g.position.x.toFixed(1), w: +(-k.g.position.z).toFixed(1) }));
 // ---- Statisches zusammenfassen (wenige Draw-Calls fuers Handy): alle Meshes in Gruppen ausser Feuer/Figur/Wolken
@@ -2673,7 +2699,7 @@ if (FIG.katze) { neuSchild({ u: 0, w: 0, dach: new THREE.Vector3(), groesse: 3, 
   for (const gd of W_GEB) { if (!gd._g) continue; gd._g.updateMatrixWorld(true);   // 19.10. Tag 4 P1: Fischerhuetten, Oberfischer, Jaegerhuetten, Hexe
     if (gd.typ === "fischerhuette") { Z(gd.u, gd.w, hoehe(gd.u, gd.w) + 4.6, `<span class="klein">${esc(gd.schild || "Fishing hut")}</span>`, "arbeit", 6, [], PRIO.arbeit);
       if (gd.ober && gd._g.userData.oberP) { const q = gd._g.localToWorld(gd._g.userData.oberP.clone()); Z(q.x, -q.z, q.y, hd(gd.ober, "Head fisherman"), null, 6, [gd.ober]); } }
-    if (gd.typ === "kaserne" || gd.typ === "kirche" || gd.typ === "spital" || gd.typ === "holzhof" || gd.typ === "bank" || gd.typ === "hafen" || gd.typ === "badehaus") {   // Bau-Schild kommt schon aus „wish by“
+    if (gd.typ === "kaserne" || gd.typ === "kirche" || gd.typ === "spital" || gd.typ === "holzhof" || gd.typ === "bank" || gd.typ === "hafen" || gd.typ === "badehaus" || gd.typ === "bauhuette") {   // Bau-Schild kommt schon aus „wish by“
       for (const q of (gd._g && gd._g.userData.leuteP) || []) { const w3 = gd._g.localToWorld(q.p.clone()); Z(w3.x, -w3.z, w3.y, hd(q.h, q.rolle), null, 6, [q.h]); } }
     if (gd.typ === "fischerei") { Z(gd.u, gd.w, hoehe(gd.u, gd.w) + 5.6, `<span>${esc(gd.schild || "Fishery")}</span>`, "arbeit", 7, [], PRIO.arbeit + 3);
       if (gd.meister && gd._g.userData.meisterP) { const q = gd._g.localToWorld(gd._g.userData.meisterP.clone()); Z(q.x, -q.z, q.y, hd(gd.meister, "Fishery master"), null, 6, [gd.meister]); } }
