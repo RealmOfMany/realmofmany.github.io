@@ -1126,6 +1126,33 @@ const BAUTEN = {
     const leute = gd.leute || [], pl = [[-.6, H + .4, .6, Math.PI], [1.6, 0, 3.2, .3], [-1.4, 0, 3.4, -.3], [3.2, 0, 3.6, 0]]; g.userData.leuteP = [];
     leute.forEach((l, i) => { const P = pl[i % pl.length]; wache(P[0], P[1], P[2], P[3]); g.userData.leuteP.push({ h: l.h, rolle: l.rolle, p: new THREE.Vector3(P[0], P[1] + 2.6, P[2]) }); });
     gd._g = g; return g; },
+  burg(gd) {   // 01.11.: Upgrade Day 14 (most ♥ noch nicht gebaut: @om_pmahapatra „add a castle and name it PRIDE OF VILLAGE“, 49♥ unter Day 11; @johan.hvs „castle with a courtyard market“) —
+    // Ringmauer mit Zinnen, 4 runde Ecktürme mit Kegeldach, Torhaus zur Straße (Westen), Bergfried mit Fahnen, Markthof mit Ständen + Brunnen. Thron leer (kein Herrscher).
+    const g = new THREE.Group(), sn = mat("stein"), sd = mat("steinDunkel"), hd = mat("holzDunkel"), dach = mat(0x8a3a2a), tuer = mat(0x1a1612), A = 13, MH = 6.0;
+    const zinnen = (x0, z0, x1, z1, y) => { const L = Math.hypot(x1 - x0, z1 - z0), n = Math.floor(L / 1.6), r = Math.atan2(z1 - z0, x1 - x0);
+      for (let k = 0; k < n; k++) { if (k % 2) continue; const q = (k + .5) / n, z = box(.8, .7, 1.7, sn, x0 + (x1 - x0) * q, y + .35, z0 + (z1 - z0) * q); z.rotation.y = -r; g.add(z); } };
+    const mauer = (x0, z0, x1, z1) => { const L = Math.hypot(x1 - x0, z1 - z0), r = Math.atan2(z1 - z0, x1 - x0), m = box(L, MH, 1.6, sn, (x0 + x1) / 2, MH / 2, (z0 + z1) / 2); m.rotation.y = -r; g.add(m);
+      const k2 = box(L, .25, 1.9, sd, (x0 + x1) / 2, MH + .1, (z0 + z1) / 2); k2.rotation.y = -r; g.add(k2); zinnen(x0, z0, x1, z1, MH + .2); };
+    mauer(-A, -A, A, -A); mauer(A, -A, A, A); mauer(A, A, -A, A); mauer(-A, A, -A, 3.4); mauer(-A, -3.4, -A, -A);   // Westseite mit Torlücke
+    for (const [x, z] of [[-A, -A], [A, -A], [A, A], [-A, A]]) { const t = mesh(new THREE.CylinderGeometry(2.5, 2.8, 9.5, 12), sn); t.position.set(x, 4.75, z); g.add(t);
+      const kr = mesh(new THREE.CylinderGeometry(2.9, 2.9, .4, 12), sd); kr.position.set(x, 9.6, z); g.add(kr);
+      const kd = mesh(new THREE.ConeGeometry(3.1, 3.6, 12), dach); kd.position.set(x, 11.6, z); g.add(kd);
+      for (const y of [3.5, 6.5]) g.add(box(.35, .9, .12, tuer, x, y, z + (z < 0 ? -2.75 : 2.75))); }
+    for (const sz of [-1, 1]) { g.add(box(4.0, 9.0, 3.6, sn, -A, 4.5, sz * 4.4)); g.add(box(4.4, .35, 4.0, sd, -A, 9.2, sz * 4.4)); zinnen(-A - 1.8, sz * 4.4 - 1.6, -A + 1.8, sz * 4.4 - 1.6, 9.4); zinnen(-A - 1.8, sz * 4.4 + 1.6, -A + 1.8, sz * 4.4 + 1.6, 9.4); }
+    g.add(box(4.0, 2.6, 5.4, sn, -A, 7.6, 0));   // Torbogen
+    for (const sz of [-1, 1]) { const fl = box(.2, 3.6, 1.6, hd, -A + 1.2, 1.8, sz * 2.0); fl.rotation.y = sz * .9; g.add(fl); }   // offene Torflügel
+    g.add(box(8.5, 15, 8.5, sn, 5.0, 7.5, -3.0)); g.add(box(9.3, .5, 9.3, sd, 5.0, 15.2, -3.0));   // Bergfried
+    zinnen(.75, -7.6, 9.25, -7.6, 15.4); zinnen(.75, 1.6, 9.25, 1.6, 15.4); zinnen(.75, -7.6, .75, 1.6, 15.4); zinnen(9.25, -7.6, 9.25, 1.6, 15.4);
+    for (const y of [5, 9, 12.5]) { g.add(box(.5, 1.3, .12, tuer, 5.0, y, 1.3)); g.add(box(.12, 1.3, .5, tuer, .7, y, -3.0)); }
+    g.add(box(1.8, 3.0, .15, hd, 5.0, 1.5, 1.32));
+    g.add(box(.12, 5.0, .12, hd, 5.0, 18.0, -3.0)); g.add(box(.06, 1.6, 2.6, mat(0x2a4a8a), 5.0, 19.5, -1.65)); g.add(box(.07, .5, .9, mat(0xe8c040), 5.0, 19.5, -1.4));
+    for (const [x, z, c] of [[-A, -A, 0xa83a2a], [A, A, 0x2a4a8a]]) { g.add(box(.1, 2.6, .1, hd, x, 14.6, z)); g.add(box(.05, .9, 1.4, mat(c), x, 15.3, z + .72)); }
+    for (const sx of [-1, 1]) { g.add(box(.08, 4.0, 1.6, mat(0x2a4a8a), 5.0 + sx * 2.2, 10.5, 1.32)); g.add(box(.09, .5, .6, mat(0xe8c040), 5.0 + sx * 2.2, 10.9, 1.36)); }   // Banner
+    const stand = (x, z, c) => { g.add(box(2.2, .9, 1.2, hd, x, .45, z)); for (const [dx, dz] of [[-1, -.55], [1, -.55], [-1, .55], [1, .55]]) g.add(box(.1, 2.2, .1, hd, x + dx, 1.1, z + dz));
+      const m = box(2.6, .1, 1.7, mat(c), x, 2.25, z); m.rotation.x = .18; g.add(m); for (let i = 0; i < 4; i++) g.add(box(.35, .3, .35, mat([0xd8a040, 0xb04a3a, 0x7aa040, 0xe8d0a0][i]), x - .8 + i * .55, 1.05, z)); };
+    stand(-6.5, -8.5, 0xc84a3a); stand(-2.0, -8.5, 0xe8d0a0); stand(-6.5, 8.5, 0x3a6aa8); stand(-2.0, 8.5, 0xd8b040); stand(6.0, 8.5, 0x5a8a3a);   // Markthof
+    const br = mesh(new THREE.CylinderGeometry(1.2, 1.3, .9, 12), sd); br.position.set(-5.0, .45, 0); g.add(br); g.add(box(.12, 1.8, .12, hd, -5.9, 1.3, 0)); g.add(box(.12, 1.8, .12, hd, -4.1, 1.3, 0)); g.add(box(2.2, .15, .3, hd, -5.0, 2.2, 0));
+    gd._g = g; return g; },
   monument(gd) {   // 21.10.: Monument für die Gründer (most ♥ unter Day 6 Part 2: @aaronchittock „a monument (statues) to its founders“, 17♥) — Steinsockel mit Stufen, 4 Steinstatuen (die ersten 4 Bewohner), Bronzetafel ohne Schrift, Blumenbeete, Bänke
     const g = new THREE.Group(), st = mat(0xb8b0a0), st2 = mat(0x9a9284), st3 = mat(0xc8c0b0), bronze = mat(0x8a6a3a), holz = mat("holz"), bl = [0xb06ab0, 0xe8d040, 0xe8e8f0, 0xd05a5a].map(c => mat(c)), gr = mat(0x4a7a3a);
     g.add(box(6.0, .25, 6.0, st2, 0, .12, 0)); g.add(box(5.0, .25, 5.0, st2, 0, .37, 0)); g.add(box(3.4, 1.1, 3.4, st, 0, 1.05, 0)); g.add(box(3.6, .16, 3.6, st2, 0, 1.66, 0));
@@ -1874,7 +1901,7 @@ const LEBEN = { rehe: [], hasen: [], voegel: [], laeufer: [], wurzeln: [] };
 for (const gd of W_GEB) if (gd.typ === "palisade_baustelle" && gd.fertig) {
   const C = gd.c, PR = gd.r, N = gd.n, PP = [], SEILE = new THREE.Group(); scene.add(SEILE);
   const RAD = gd.radien ? (deg => { const d = ((deg % 360) + 360) % 360, k = Math.floor(d), f = d - k; return gd.radien[k % 360] * (1 - f) + gd.radien[(k + 1) % 360] * f; }) : () => PR;   // 18.10. abends: Radius je Winkel (aeussere Palisade um ganz Dorf 1)
-  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5, spital: 7.5, holzhof: 7.5, kraeuterladen: 6.5, baeckerei: 6.5, monument: 4.5, bank: 6.5, badehaus: 9, bauhuette: 9, mauerwache: 7, hafen: 8 };
+  const FUSS = { grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5, spital: 7.5, holzhof: 7.5, kraeuterladen: 6.5, baeckerei: 6.5, monument: 4.5, bank: 6.5, badehaus: 9, bauhuette: 9, mauerwache: 7, burg: 17, hafen: 8 };
   const ARC = [];   // 18.10. abends: Pfaehle nach Bogenlaenge verteilen (bei Radius je Winkel sonst Loecher an Ausbuchtungen)
   if (gd.radien) { let L = 0, q = null; for (let k = 0; k <= 4000; k++) { const deg = gd.von_grad + (gd.bis_grad - gd.von_grad) * k / 4000, a = deg * Math.PI / 180, p = { u: C.u + Math.cos(a) * RAD(deg) * (gd.su || 1), w: C.w + Math.sin(a) * RAD(deg) * (gd.sw || 1), deg };
       if (q) L += Math.hypot(p.u - q.u, p.w - q.w); p.L = L; ARC.push(p); q = p; } }
@@ -2280,7 +2307,7 @@ const STADTMAUER = { pfloecke: 0, steine: 0, tore: [] };
       if (i % 3 === 0 && !weg(u, w) && !nass(u, w)) { const g = new THREE.Group(); g.add(box(.14, 1.1, .14, pf, 0, .55, 0)); g.add(box(.18, .16, .18, rot, 0, 1.12, 0)); setze(g, u, w, 0); SPERRE.push([u, w, .6]); STADTMAUER.pfloecke++; } } } }
 { // ---- Wald (18.10. 17 Uhr, Fix): Baeume nach Abstand zu den Siedlungen statt ueber die ganze (riesige) Welt —
   // Lichtungen in den Vierteln, dichter Wald dazwischen und rundherum, Waldguertel zwischen Dorf 1 und Dorf 2. Gleiche Dichte wie vor Dorf 2.
-  const ORTE = [...W_VIERTEL.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_GEB.filter(g => g.u !== undefined).map(g => [g.u, g.w, 8]), [0, 0, 10], [0, DORF_MITTE_W, 14]];
+  const ORTE = [...W_VIERTEL.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_GEB.filter(g => g.u !== undefined).map(g => [g.u, g.w, g.typ === "burg" ? 24 : 8]), [0, 0, 10], [0, DORF_MITTE_W, 14]];
   for (const d of DOERFER) ORTE.push([d.u, d.w, 12]);
   const WALDKERN = [...(DATEN.flaechen || []).filter(f => f.art === "landschaft").map(f => [f.u, f.w, 60]), ...DOERFER.map(d => [d.u, d.w, 260])];   // 18.10. 22:40: Landschaftsguertel = dichter Wald
   const nahDistGenau = (u, w) => { let m = 1e9; for (const [a, b, rr2] of ORTE) { const d = Math.hypot(u - a, (w - b) * .9) - rr2; if (d < m) m = d; } return m; };
@@ -2325,7 +2352,7 @@ const BERG = (() => { const B = BERG_DEF, cu = B.u, cw = B.w, hb = bergH, STB = 
 const FERN = { teile: [], an: null };
 { // Nebelrand (19.10. spät: Abstandsfeld)
   // 19.10. spät: Nebel folgt der echten Wald-/Berggrenze (Abstandsfeld als Textur) statt eines Rechteck-Rings — schließt überall, auch gedreht
-  const ORTE = [...W_VIERTEL.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_GEB.filter(g => g.u !== undefined).map(g => [g.u, g.w, 8]), [0, 0, 10], [0, DORF_MITTE_W, 14], ...DOERFER.map(d => [d.u, d.w, 12])];
+  const ORTE = [...W_VIERTEL.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_GEB.filter(g => g.u !== undefined).map(g => [g.u, g.w, g.typ === "burg" ? 24 : 8]), [0, 0, 10], [0, DORF_MITTE_W, 14], ...DOERFER.map(d => [d.u, d.w, 12])];
   const KERN = [...(DATEN.flaechen || []).filter(f => f.art === "landschaft").map(f => [f.u, f.w, 60]), ...DOERFER.map(d => [d.u, d.w, 260])];
   const BU0 = Math.min(...ORTE.map(o => o[0])) - 150, BU1 = Math.max(...ORTE.map(o => o[0])) + 150, BW0 = Math.min(...ORTE.map(o => o[1])) - 110, BW1 = Math.max(...ORTE.map(o => o[1])) + 120;   // = Waldgebiet
   const B = BERG.B, ZC = 12, GU0 = Math.min(BU0, B.u - B.lu) - 160, GW0 = Math.min(BW0, B.w - B.lw) - 160, GU1 = Math.max(BU1, B.u + B.lu) + 160, GW1 = Math.max(BW1, B.w + B.lw) + 160;
@@ -2383,7 +2410,7 @@ if (CFG.tiere) { const RT = rng(90210), rr2 = (a, b) => a + RT() * (b - a), M4 =
     else if (x < .9) hasen.push([u, w, RT() * 6.283, 1]); else fuechse.push([u, w, RT() * 6.283, 1]); }
   art("rehe", () => reh(false), rehe, true); art("hasen", hase, hasen); art("fuechse", fuchs, fuechse, true);
   window.__tiere = () => TIERE.n; }
-const GEB_R = { zauberturm: 9, weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5, spital: 7.5, holzhof: 7.5, kraeuterladen: 6.5, baeckerei: 6.5, monument: 4.5, bank: 6.5, badehaus: 9, bauhuette: 9, mauerwache: 7 };
+const GEB_R = { zauberturm: 9, weidestall: 7, wachhaus: 3.4, grosseschmiede: 7.5, schmiede: 4.5, taverne: 6.5, gemeinschaftsfeld: 13, holzfaellerhuette: 4.5, holzturm: 2.8, brunnen: 1.6, werkstatt: 4.5, wachposten: 1.8, fischerhuette: 3.0, jaegerhuette: 4.5, hexenhuette: 6.0, stall_klein: 6.5, schneiderbank: 1.2, mine: 4.5, steinbruch: 6, gasthaus: 6, fischerei: 5, kaserne: 7.5, kirche: 8.5, spital: 7.5, holzhof: 7.5, kraeuterladen: 6.5, baeckerei: 6.5, monument: 4.5, bank: 6.5, badehaus: 9, bauhuette: 9, mauerwache: 7, burg: 17 };
 window.__inventar = () => {  window.__pferde = W_GEB.filter(g => g.typ === "stall_klein").reduce((a, g) => a + (g.pferde || 2), 0) + RITT.n;
  let pf = 0; scene.traverse(o => { if (o.isMesh && o.geometry && o.geometry.type === "CylinderGeometry") pf++; });
   return { fluss: FLUSS.mesh ? FLUSS.y.length : 0, baeume: window.__waldbaeume || 0, baum_teile: window.__baeume || 0, huetten: LAGE.length,
