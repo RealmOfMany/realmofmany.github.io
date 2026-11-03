@@ -809,6 +809,8 @@ const BAUTEN = {
     for (let i = 0; i < 14; i++) g.add(box(lx * .94, .12, .32, mat(i % 2 ? "ackerHell" : "erdeDunkel"), 0, .08, -lz / 2 + (i + .5) * lz / 14));
     const reihen = zu === "gepfluegt" ? 0 : zu === "saat" ? 5 : 14, farbe = zu === "reif" ? 0xd9b04a : 0x6f9a3e, hoch = zu === "reif" ? .75 : zu === "gruen" ? .45 : .28;
     for (let i = 0; i < reihen; i++) g.add(box(lx * .9, hoch, .4, mat(farbe), 0, hoch / 2 + .06, -lz / 2 + (i + .5) * lz / 14));   // Saatreihen (eine Reihe = ein Mesh)
+    if (gd.hof) { const sch = haus({ l: 5.0, b: 3.8, h: 2.6, wand: "holz", dach: "stroh", kamin: false }); sch.position.set(lx / 2 + 3.4, 0, 0); sch.rotation.y = Math.PI / 2; g.add(sch);   // 03.11. Nahrung B: kleine Scheune am Feld (Ertrag 8)
+      for (let i = 0; i < 3; i++) { const hb = mesh(new THREE.CylinderGeometry(.55, .55, .9, 10), mat(0xd9b04a)); hb.rotation.z = Math.PI / 2; hb.position.set(lx / 2 + 1.0, .45, -3 + i * 1.2); g.add(hb); } }
     if (gd.vogelscheuche) { const v = new THREE.Group(); v.add(box(.1, 2.2, .1, mat("holzDunkel"), 0, 1.1, 0)); v.add(box(1.4, .08, .08, mat("holzDunkel"), 0, 1.7, 0));
       v.add(box(.5, .7, .3, mat(0x8a3b2a), 0, 1.5, 0)); const kp = mesh(new THREE.IcosahedronGeometry(.2, 0), mat("heu")); kp.position.y = 2.1; v.add(kp);
       const hut = mesh(new THREE.ConeGeometry(.32, .3, 7), mat("heu")); hut.position.y = 2.35; v.add(hut); v.position.set(2, 0, 1.5); g.add(v); }
@@ -2329,7 +2331,7 @@ const STADTMAUER = { pfloecke: 0, steine: 0, tore: [] };
       if (i % 3 === 0 && !weg(u, w) && !nass(u, w)) { const g = new THREE.Group(); g.add(box(.14, 1.1, .14, pf, 0, .55, 0)); g.add(box(.18, .16, .18, rot, 0, 1.12, 0)); setze(g, u, w, 0); SPERRE.push([u, w, .6]); STADTMAUER.pfloecke++; } } } }
 { // ---- Wald (18.10. 17 Uhr, Fix): Baeume nach Abstand zu den Siedlungen statt ueber die ganze (riesige) Welt —
   // Lichtungen in den Vierteln, dichter Wald dazwischen und rundherum, Waldguertel zwischen Dorf 1 und Dorf 2. Gleiche Dichte wie vor Dorf 2.
-  const ORTE = [...W_VIERTEL.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_GEB.filter(g => g.u !== undefined).map(g => [g.u, g.w, g.typ === "burg" ? 24 : 8]), [0, 0, 10], [0, DORF_MITTE_W, 14]];
+  const ORTE = [...W_VIERTEL.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_GEB.filter(g => g.u !== undefined).map(g => [g.u, g.w, g.typ === "burg" ? 24 : g.typ === "gemeinschaftsfeld" ? 16 : 8]), [0, 0, 10], [0, DORF_MITTE_W, 14]];
   for (const d of DOERFER) ORTE.push([d.u, d.w, 12]);
   const WALDKERN = [...(DATEN.flaechen || []).filter(f => f.art === "landschaft").map(f => [f.u, f.w, 60]), ...DOERFER.map(d => [d.u, d.w, 260])];   // 18.10. 22:40: Landschaftsguertel = dichter Wald
   const nahDistGenau = (u, w) => { let m = 1e9; for (const [a, b, rr2] of ORTE) { const d = Math.hypot(u - a, (w - b) * .9) - rr2; if (d < m) m = d; } return m; };
@@ -2374,7 +2376,7 @@ const BERG = (() => { const B = BERG_DEF, cu = B.u, cw = B.w, hb = bergH, STB = 
 const FERN = { teile: [], an: null };
 { // Nebelrand (19.10. spät: Abstandsfeld)
   // 19.10. spät: Nebel folgt der echten Wald-/Berggrenze (Abstandsfeld als Textur) statt eines Rechteck-Rings — schließt überall, auch gedreht
-  const ORTE = [...W_VIERTEL.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_GEB.filter(g => g.u !== undefined).map(g => [g.u, g.w, g.typ === "burg" ? 24 : 8]), [0, 0, 10], [0, DORF_MITTE_W, 14], ...DOERFER.map(d => [d.u, d.w, 12])];
+  const ORTE = [...W_VIERTEL.map(v => [v.mitte.u, v.mitte.w, v.r * 1.15]), ...W_GEB.filter(g => g.u !== undefined).map(g => [g.u, g.w, g.typ === "burg" ? 24 : g.typ === "gemeinschaftsfeld" ? 16 : 8]), [0, 0, 10], [0, DORF_MITTE_W, 14], ...DOERFER.map(d => [d.u, d.w, 12])];
   const KERN = [...(DATEN.flaechen || []).filter(f => f.art === "landschaft").map(f => [f.u, f.w, 60]), ...DOERFER.map(d => [d.u, d.w, 260])];
   const BU0 = Math.min(...ORTE.map(o => o[0])) - 150, BU1 = Math.max(...ORTE.map(o => o[0])) + 150, BW0 = Math.min(...ORTE.map(o => o[1])) - 110, BW1 = Math.max(...ORTE.map(o => o[1])) + 120;   // = Waldgebiet
   const B = BERG.B, ZC = 12, GU0 = Math.min(BU0, B.u - B.lu) - 160, GW0 = Math.min(BW0, B.w - B.lw) - 160, GU1 = Math.max(BU1, B.u + B.lu) + 160, GW1 = Math.max(BW1, B.w + B.lw) + 160;
